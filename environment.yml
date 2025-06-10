@@ -1,7 +1,7 @@
 name: competitiveLLM
 channels:
-  - anaconda
   - conda-forge
+  - anaconda
   - defaults
   - https://repo.anaconda.com/pkgs/main
   - https://repo.anaconda.com/pkgs/r
@@ -82,4 +82,12 @@ dependencies:
   - zeromq=4.3.5=h313beb8_0
   - zipp=3.23.0=pyhd8ed1ab_0
   - zlib=1.2.13=h18a0788_1
-prefix: /Users/leo/anaconda3/envs/bus
+  - pip:
+      - filelock==3.18.0
+      - fsspec==2025.5.1
+      - hf-xet==1.1.3
+      - huggingface-hub==0.32.5
+      - inquirerpy==0.3.4
+      - pfzy==0.3.4
+      - pyyaml==6.0.2
+prefix: /opt/homebrew/anaconda3/envs/competitiveLLM
