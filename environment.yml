@@ -1,4 +1,4 @@
-name: bus
+name: competitiveLLM
 channels:
   - anaconda
   - conda-forge
