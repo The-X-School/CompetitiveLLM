@@ -11,9 +11,12 @@ See all branches: git branch
 
 If you want to pull, just do : git pull
 How to stage all files to include in the next commit: git add .
-How to commit: git commit
+How to commit: git commit -s -m "your message"
 How to check what's modfiyed/staged: git status
 (You have to commit before you push)
+
+
+Check the log: git log
 
 Update environment from a yaml file: conda env update --file file_name.yaml
 
