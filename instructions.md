@@ -30,3 +30,4 @@ conda env create --file env_name.yaml
 Notes:
 We're using python 3.10
 install huggingface_hub: pip install -U "huggingface_hub[cli]
+Remember: Always do Squash and Merge for the big green button
