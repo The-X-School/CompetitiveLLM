@@ -8,7 +8,7 @@ dataset = load_dataset("trl-lib/tldr", split="train")
 def reward_len(completions, **kwargs):
     return [-abs(20 - len(completion)) for completion in completions]
 
-training_args = GRPOConfig(output_dir="Qwen2-0.5B-GRPO", logging_steps=10)
+training_args = GRPOConfig(output_dir="Qwen2-0.5B-GRPO", logging_steps=10, per_device_train_batch_size=24)
 trainer = GRPOTrainer(
     model="Qwen/Qwen2-0.5B-Instruct",
     reward_funcs=reward_len,
