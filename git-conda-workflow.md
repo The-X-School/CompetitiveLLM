@@ -35,6 +35,11 @@
 
 ## 🌿 Git Basics
 
+- **Clone a repository**  
+  ```bash
+  git clone https://github.com/username/repository.git
+  ```
+
 - **Create a new branch**  
   ```bash
   git checkout -b branch_name
@@ -80,6 +85,31 @@
   git log
   ```
 
+## 🧰 GitHub CLI (`gh`)
+
+> The GitHub CLI lets you create pull requests, issues, and interact with GitHub from the terminal.
+
+- **Install GitHub CLI using Homebrew**  
+  ```bash
+  brew install gh
+  ```
+
+- **Authenticate GitHub CLI**  
+  ```bash
+  gh auth login
+  ```
+
+- **Create a pull request**  
+  ```bash
+  gh pr create --fill
+  ```
+
+- **View current PRs**  
+  ```bash
+  gh pr list
+  ```
+
 ## ✅ Final Notes
 
 - **Always use _Squash and Merge_** when hitting the big green button on GitHub.
+- **Use `gh` to streamline PR creation and review from your terminal.**
