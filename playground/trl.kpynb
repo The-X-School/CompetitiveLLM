@@ -1,0 +1,46 @@
+from transformers import TrainingArguments, Trainer, DataCollatorForLanguageModeling
+import torch
+import os
+
+# Set memory management parameters
+os.environ['PYTORCH_MPS_HIGH_WATERMARK_RATIO'] = '0.0'
+torch.backends.cudnn.benchmark = True
+
+# Check if MPS is available
+if torch.backends.mps.is_available():
+    device = torch.device("mps")
+    print("Using MPS (GPU) device")
+else:
+    device = torch.device("cpu")
+    print("MPS device not found, using CPU")
+
+# Configure training arguments for MPS
+training_args = TrainingArguments(
+    output_dir="./results",
+    num_train_epochs=1,
+    per_device_train_batch_size=4,
+    gradient_accumulation_steps=8,
+    gradient_checkpointing=True,
+    optim="paged_adamw_8bit",
+    learning_rate=2e-4,
+    fp16=True,
+    logging_steps=100,
+    save_strategy="epoch",
+    warmup_ratio=0.1,
+    dataloader_num_workers=4,
+    dataloader_pin_memory=True,
+)
+
+# Move model to MPS device
+model = model.to(device)
+
+# Enable gradient checkpointing
+model.gradient_checkpointing_enable()
+
+# Create trainer with MPS device
+trainer = Trainer(
+    model=model,
+    args=training_args,
+    train_dataset=tokenized_dataset["train"],
+    data_collator=DataCollatorForLanguageModeling(tokenizer=tokenizer, mlm=False)
+) 
