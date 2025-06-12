@@ -12,12 +12,12 @@ import sys
 train = load_dataset("trl-lib/tldr", split="train")
 valid = load_dataset("trl-lib/tldr", split="validation")
 
-# TACO = load_dataset("BAAI/TACO", split="train")
-# TLDR = load_dataset("trl-lib/tldr", split="train")
+TACO = load_dataset("BAAI/TACO", split="train")
+TLDR = load_dataset("trl-lib/tldr", split="train")
 #
-# TACO = TACO.rename_column('question', 'prompt')
-# TACO = TACO.rename_column('solutions', 'completion')
-
+TACO = TACO.rename_column('question', 'prompt')
+TACO = TACO.rename_column('solutions', 'completion')
+TACO.add_column('model_inputs', TACO['prompt'])
 def test_code(code, cases, ex_out, time_limit):
     score = 0
     correct_cases = 0
@@ -102,7 +102,7 @@ trainer = GRPOTrainer(
     model=model,
     reward_funcs=reward_check,
     args=training_args,
-    train_dataset=train,
-    eval_dataset=valid
+    train_dataset=TACO,
+   # eval_dataset=valid
 )
 trainer.train()
