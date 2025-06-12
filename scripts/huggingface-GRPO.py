@@ -4,14 +4,17 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 from trl import GRPOConfig, GRPOTrainer
 from peft import LoraConfig, TaskType, get_peft_model
 
-train = load_dataset("trl-lib/tldr", split="train")
-valid = load_dataset("trl-lib/tldr", split="validation")
+# train = load_dataset("trl-lib/tldr", split="train")
+# valid = load_dataset("trl-lib/tldr", split="validation")
 
-# TACO = load_dataset("BAAI/TACO", split="train")
-# TLDR = load_dataset("trl-lib/tldr", split="train")
-#
-# TACO = TACO.rename_column('question', 'prompt')
-# TACO = TACO.rename_column('solutions', 'completion')
+TACO_train = load_dataset("BAAI/TACO", split="train")
+TACO_valid = load_dataset("BAAI/TACO", split="test")
+
+TACO_train = TACO_train.rename_column('question', 'prompt')
+TACO_train = TACO_train.rename_column('solutions', 'completion')
+
+TACO_valid = TACO_valid.rename_column('question', 'prompt')
+TACO_valid = TACO_valid.rename_column('solutions', 'completion')
 
 def reward_len(completions, **kwargs):
     return [-abs(20 - len(completion)) for completion in completions]
@@ -27,8 +30,8 @@ trainer = GRPOTrainer(
     model=model,
     reward_funcs=reward_len,
     args=training_args,
-    train_dataset=train,
-    eval_dataset=valid
+    train_dataset=TACO_train,
+    eval_dataset=TACO_valid
 )
 trainer.train()
 
