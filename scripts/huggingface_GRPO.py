@@ -9,11 +9,15 @@ import time
 import builtins
 import io
 import sys
-# train = load_dataset("trl-lib/tldr", split="train")
-# valid = load_dataset("trl-lib/tldr", split="validation")
+import re
+
+train = load_dataset("trl-lib/tldr", split="train")
+valid = load_dataset("trl-lib/tldr", split="validation")
 
 TACO_train = load_dataset("BAAI/TACO", split="train")
 TACO_valid = load_dataset("BAAI/TACO", split="test")
+
+print("Finished loading TACO")
 
 TACO_train = TACO_train.rename_column('question', 'prompt')
 TACO_train = TACO_train.rename_column('solutions', 'completion')
@@ -83,11 +87,14 @@ def test_code(code, cases, ex_out, time_limit):
         score += 25
     return score
 
+def extract_tags(completion, tag_start, tag_end):
+    return re.compile(f"{tag_start}(.*?){tag_end}").find(completion)
+
 def reward_check(completions, **kwargs):
     #completions is the code???
     rewards=[]
     for completion in completions:
-        code = completion
+        code = extract_tags(completion, "<solution>", "</solution>")
         time_limit = prompt_to_time[kwargs['prompt']]
         cases = prompt_to_completion_train[kwargs['prompt']][0]
         ex_out = prompt_to_completion_train[kwargs['prompt']][1]
@@ -95,20 +102,54 @@ def reward_check(completions, **kwargs):
         rewards.append(reward)
     return rewards
 
+reasoning_start = "<think>" 
+reasoning_end   = "</think>"
+solution_start  = "<solution>"
+solution_end    = "</solution>"
+
+system_prompt = \
+f"""You are given a problem.
+Think about the problem and provide your working out.
+Place it between {reasoning_start} and {reasoning_end}.
+Then, provide your solution between {solution_start}{solution_end}"""
 
 peft_config = LoraConfig(task_type=TaskType.CAUSAL_LM, inference_mode=False, r=8, lora_alpha=32, lora_dropout=0.1)
 training_args = GRPOConfig(output_dir="Qwen2-0.5B-GRPO", logging_steps=10, per_device_train_batch_size=24)
 
-# tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2-0.5B-Instruct")
+tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2-0.5B-Instruct")
 model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen2-0.5B-Instruct")
 model = get_peft_model(model, peft_config)
 
+chat_template = \
+    "{% if messages[0]['role'] == 'system' %}"\
+        "{{ messages[0]['content'] + eos_token }}"\
+        "{% set loop_messages = messages[1:] %}"\
+    "{% else %}"\
+        "{{ '{system_prompt}' + eos_token }}"\
+        "{% set loop_messages = messages %}"\
+    "{% endif %}"\
+    "{% for message in loop_messages %}"\
+        "{% if message['role'] == 'user' %}"\
+            "{{ message['content'] }}"\
+        "{% elif message['role'] == 'assistant' %}"\
+            "{{ message['content'] + eos_token }}"\
+        "{% endif %}"\
+    "{% endfor %}"\
+    "{% if add_generation_prompt %}{{ '{reasoning_start}' }}"\
+    "{% endif %}"
+
+# Replace with out specific template:
+chat_template = chat_template\
+    .replace("'{system_prompt}'",   f"'{system_prompt}'")\
+    .replace("'{reasoning_start}'", f"'{reasoning_start}'")
+tokenizer.chat_template = chat_template
+
 trainer = GRPOTrainer(
     model=model,
+    tokenizer=tokenizer,
     reward_funcs=reward_check,
     args=training_args,
     train_dataset=TACO_train,
     eval_dataset=TACO_valid
 )
 trainer.train()
-
