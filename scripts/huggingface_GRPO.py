@@ -149,6 +149,10 @@ Then, provide your solution between {solution_start}{solution_end}"""
 peft_config = LoraConfig(task_type=TaskType.CAUSAL_LM, inference_mode=False, r=8, lora_alpha=32, lora_dropout=0.1)
 training_args = GRPOConfig(output_dir="Qwen2-0.5B-GRPO", logging_steps=10, per_device_train_batch_size=24)
 
+tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2-0.5B-Instruct")
+model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen2-0.5B-Instruct")
+model = get_peft_model(model, peft_config)
+
 trainer = GRPOTrainer(
     model=model,
     reward_funcs=reward_check,
