@@ -11,36 +11,60 @@ import io
 import sys
 import re
 import os
+import json
 
-if (os.path.exists('./taco_train')):
-    TACO_train = load_from_disk('./taco_train')
-else:
+def get_taco_data():
+    '''if (os.path.exists('./taco_train')):
+        TACO_train = load_from_disk('./taco_train')
+    else:
+        TACO_train = load_dataset("BAAI/TACO", split="train")
+        TACO_train.save_to_disk('./taco_train')
+
+    if (os.path.exists('./taco_valid')):
+        TACO_valid = load_from_disk('./taco_valid')
+    else:
+        TACO_valid = load_dataset("BAAI/TACO", split="test")
+        TACO_valid.save_to_disk('./taco_valid')'''
+
     TACO_train = load_dataset("BAAI/TACO", split="train")
-    TACO_train.save_to_disk('./taco_train')
-
-if (os.path.exists('./taco_valid')):
-    TACO_valid = load_from_disk('./taco_valid')
-else:
     TACO_valid = load_dataset("BAAI/TACO", split="test")
-    TACO_valid.save_to_disk('./taco_valid')
 
-TACO_train = TACO_train \
-    .rename_column('question', 'prompt') \
-    .rename_column('solutions', 'completion')
+    TACO_train = TACO_train \
+        .rename_column('question', 'prompt') \
+        .rename_column('solutions', 'completion')
 
-TACO_valid = TACO_valid \
-    .rename_column('question', 'prompt') \
-    .rename_column('solutions', 'completion')
-#prompt_to_completion_valid = {TACO_valid['prompt'][i]: TACO_valid['completion'][i] for i in range(len(TACO_valid))}
-    
-prompt_to_completion_train = {TACO_train[i]['prompt']: TACO_train[i]['input_output'] for i in range(len(TACO_train))}
+    TACO_valid = TACO_valid \
+        .rename_column('question', 'prompt') \
+        .rename_column('solutions', 'completion')
 
-prompt_to_time = {TACO_train[i]['prompt']: TACO_train[i]['time_limit'] for i in range(len(TACO_train))}
+    TACO_train = TACO_train.map(lambda x: {
+        "prompt" : [
+            {"role": "system", "content": "You are given a problem. Think about the problem and provide your working out. Place it between <think> and </think>. Then, provide your solution between <solution> and </solution>"},
+            {"role": "user",   "content": x["prompt"]},
+            {"role": "assistant", "content": x["completion"]} # Include completion as a message
+        ],
+        "completion": [x["completion"]]
+    })
+
+    TACO_valid = TACO_valid.map(lambda x: {
+        "prompt" : [
+            {"role": "system", "content": "You are given a problem. Think about the problem and provide your working out. Place it between <think> and </think>. Then, provide your solution between <solution> and </solution>"},
+            {"role": "user",   "content": x["prompt"]},
+            {"role": "assistant", "content": x["completion"]} # Include completion as a message
+        ],
+        "completion": [x["completion"]]
+    })
+
+
+    return TACO_train, TACO_valid
+
+TACO_train, TACO_valid = get_taco_data()
 
 #this is the code that will be used to test the code
 def test_code(code, cases, ex_out, time_limit):
     score = 0
     correct_cases = 0
+    time_limit = float(time_limit)
 
     def run_code(code, case_input, output_queue):
         # Mock input
@@ -67,7 +91,6 @@ def test_code(code, cases, ex_out, time_limit):
 
         max_mem = 0
         start_time = time.time()
-        first_mem = proc.memory_info().rss / 1024
         while p.is_alive() and time.time() - start_time < time_limit:
             try:
                 mem = proc.memory_info().rss / 1024  # in KB
@@ -99,15 +122,16 @@ def test_code(code, cases, ex_out, time_limit):
 def extract_tags(completion, tag_start, tag_end):
     return re.compile(f"{tag_start}(.*?){tag_end}").find(completion)
 
-def reward_check(completions, **kwargs):
+def reward_check(completions, input_output, time_limit, **kwargs):
     #completions is the code???
+    input_output = json.loads(input_output)
+    inputs, outputs = input_output['inputs'], input_output['outputs']
     rewards=[]
     for completion in completions:
         code = extract_tags(completion, "<solution>", "</solution>")
-        time_limit = prompt_to_time[kwargs['prompt']]
-        cases = prompt_to_completion_train[kwargs['prompt']]['inputs']
-        ex_out = prompt_to_completion_train[kwargs['prompt']]['outputs']
-        reward = test_code(code, cases, ex_out, time_limit)
+        if time_limit != None: time_limit = re.compile("(.*) second").findall(time_limit)[0]
+        else: time_limit = 2
+        reward = test_code(code, inputs, outputs, time_limit)
         rewards.append(reward)
     return rewards
 
@@ -125,40 +149,11 @@ Then, provide your solution between {solution_start}{solution_end}"""
 peft_config = LoraConfig(task_type=TaskType.CAUSAL_LM, inference_mode=False, r=8, lora_alpha=32, lora_dropout=0.1)
 training_args = GRPOConfig(output_dir="Qwen2-0.5B-GRPO", logging_steps=10, per_device_train_batch_size=24)
 
-tokenizer = AutoTokenizer.from_pretrained("Qwen/Qwen2-0.5B-Instruct")
-model = AutoModelForCausalLM.from_pretrained("Qwen/Qwen2-0.5B-Instruct")
-model = get_peft_model(model, peft_config)
-
-chat_template = \
-    "{% if messages[0]['role'] == 'system' %}"\
-        "{{ messages[0]['content'] + eos_token }}"\
-        "{% set loop_messages = messages[1:] %}"\
-    "{% else %}"\
-        "{{ '{system_prompt}' + eos_token }}"\
-        "{% set loop_messages = messages %}"\
-    "{% endif %}"\
-    "{% for message in loop_messages %}"\
-        "{% if message['role'] == 'user' %}"\
-            "{{ message['content'] }}"\
-        "{% elif message['role'] == 'assistant' %}"\
-            "{{ message['content'] + eos_token }}"\
-        "{% endif %}"\
-    "{% endfor %}"\
-    "{% if add_generation_prompt %}{{ '{reasoning_start}' }}"\
-    "{% endif %}"
-
-# Replace with out specific template:
-chat_template = chat_template\
-    .replace("'{system_prompt}'",   f"'{system_prompt}'")\
-    .replace("'{reasoning_start}'", f"'{reasoning_start}'")
-tokenizer.chat_template = chat_template
-
 trainer = GRPOTrainer(
     model=model,
-    tokenizer=tokenizer,
     reward_funcs=reward_check,
     args=training_args,
-    train_dataset=[TACO_train[0]],
-    eval_dataset=[TACO_valid[0]]
+    train_dataset=TACO_train,
+    eval_dataset=TACO_valid
 )
 trainer.train()
