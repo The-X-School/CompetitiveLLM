@@ -3,7 +3,12 @@ from datasets import load_dataset
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from trl import GRPOConfig, GRPOTrainer
 from peft import LoraConfig, TaskType, get_peft_model
-
+import multiprocessing
+import psutil
+import time
+import builtins
+import io
+import sys
 # train = load_dataset("trl-lib/tldr", split="train")
 # valid = load_dataset("trl-lib/tldr", split="validation")
 
@@ -15,13 +20,16 @@ TACO_train = TACO_train.rename_column('solutions', 'completion')
 
 TACO_valid = TACO_valid.rename_column('question', 'prompt')
 TACO_valid = TACO_valid.rename_column('solutions', 'completion')
+#prompt_to_completion_valid = {TACO_valid['prompt'][i]: TACO_valid['completion'][i] for i in range(len(TACO_valid))}
+prompt_to_completion_train = {TACO_train['prompt'][i]: [TACO_train['input_output'][i]['inputs'], TACO_train['input_output'][i]['outputs']] for i in range(len(TACO_train))}
+prompt_to_time = {TACO_train['prompt'][i]: TACO_train['time_limit'][i] for i in range(len(TACO_train))}
+
+#this is the code that will be used to test the code
 def test_code(code, cases, ex_out, time_limit):
     score = 0
     correct_cases = 0
 
     def run_code(code, case_input, output_queue):
-
-
         # Mock input
         builtins.input = lambda: case_input
 
@@ -80,13 +88,14 @@ def reward_check(completions, **kwargs):
     rewards=[]
     for completion in completions:
         code = completion
-        cases = kwargs["input_output"]["inputs"]
-        ex_out = kwargs["input_output"]["outputs"]
-        time_limit = kwargs.get("time_limit", 2)
-        #ill do some more stuff here later
+        time_limit = prompt_to_time[kwargs['prompt']]
+        cases = prompt_to_completion_train[kwargs['prompt']][0]
+        ex_out = prompt_to_completion_train[kwargs['prompt']][1]
         reward = test_code(code, cases, ex_out, time_limit)
         rewards.append(reward)
     return rewards
+
+
 peft_config = LoraConfig(task_type=TaskType.CAUSAL_LM, inference_mode=False, r=8, lora_alpha=32, lora_dropout=0.1)
 training_args = GRPOConfig(output_dir="Qwen2-0.5B-GRPO", logging_steps=10, per_device_train_batch_size=24)
 
