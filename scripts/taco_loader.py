@@ -12,7 +12,6 @@ import sys
 import re
 import os
 import json
-
 def get_taco_data():
     if (os.path.exists('./taco_train')):
         TACO_train = load_from_disk('./taco_train')
@@ -26,13 +25,8 @@ def get_taco_data():
         TACO_valid = load_dataset("BAAI/TACO", split="test")
         TACO_valid.save_to_disk('./taco_valid')
 
-    TACO_train = TACO_train \
-        .rename_column('question', 'prompt') \
-        .rename_column('solutions', 'completion')
-
-    TACO_valid = TACO_valid \
-        .rename_column('question', 'prompt') \
-        .rename_column('solutions', 'completion')
+    TACO_train = TACO_train.rename_column('question', 'prompt')
+    TACO_valid = TACO_valid.rename_column('question', 'prompt')
 
     TACO_train = TACO_train.map(lambda x: {
         "prompt" : [
@@ -40,5 +34,12 @@ def get_taco_data():
             {"role": "user",   "content": x["prompt"]},
         ]
     })
-    
+
+    TACO_valid = TACO_valid.map(lambda x: {
+        "prompt" : [
+            {"role": "system", "content": "You are given a problem. Think about the problem and provide your working out. Place it between <think> and </think>. Then, provide your solution between <solution> and </solution>"},
+            {"role": "user",   "content": x["prompt"]},
+        ]
+    })
+
     return TACO_train, TACO_valid
