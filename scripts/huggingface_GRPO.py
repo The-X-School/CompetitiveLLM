@@ -1,5 +1,5 @@
 # train_grpo.py
-from datasets import load_dataset
+from datasets import load_dataset, load_from_disk
 from transformers import AutoTokenizer, AutoModelForCausalLM
 from trl import GRPOConfig, GRPOTrainer
 from peft import LoraConfig, TaskType, get_peft_model
@@ -10,23 +10,32 @@ import builtins
 import io
 import sys
 import re
+import os
 
-train = load_dataset("trl-lib/tldr", split="train")
-valid = load_dataset("trl-lib/tldr", split="validation")
+if (os.path.exists('./taco_train')):
+    TACO_train = load_from_disk('./taco_train')
+else:
+    TACO_train = load_dataset("BAAI/TACO", split="train")
+    TACO_train.save_to_disk('./taco_train')
 
-TACO_train = load_dataset("BAAI/TACO", split="train")
-TACO_valid = load_dataset("BAAI/TACO", split="test")
+if (os.path.exists('./taco_valid')):
+    TACO_valid = load_from_disk('./taco_valid')
+else:
+    TACO_valid = load_dataset("BAAI/TACO", split="test")
+    TACO_valid.save_to_disk('./taco_valid')
 
-print("Finished loading TACO")
+TACO_train = TACO_train \
+    .rename_column('question', 'prompt') \
+    .rename_column('solutions', 'completion')
 
-TACO_train = TACO_train.rename_column('question', 'prompt')
-TACO_train = TACO_train.rename_column('solutions', 'completion')
-
-TACO_valid = TACO_valid.rename_column('question', 'prompt')
-TACO_valid = TACO_valid.rename_column('solutions', 'completion')
+TACO_valid = TACO_valid \
+    .rename_column('question', 'prompt') \
+    .rename_column('solutions', 'completion')
 #prompt_to_completion_valid = {TACO_valid['prompt'][i]: TACO_valid['completion'][i] for i in range(len(TACO_valid))}
-prompt_to_completion_train = {TACO_train['prompt'][i]: [TACO_train['input_output'][i]['inputs'], TACO_train['input_output'][i]['outputs']] for i in range(len(TACO_train))}
-prompt_to_time = {TACO_train['prompt'][i]: TACO_train['time_limit'][i] for i in range(len(TACO_train))}
+    
+prompt_to_completion_train = {TACO_train[i]['prompt']: TACO_train[i]['input_output'] for i in range(len(TACO_train))}
+
+prompt_to_time = {TACO_train[i]['prompt']: TACO_train[i]['time_limit'] for i in range(len(TACO_train))}
 
 #this is the code that will be used to test the code
 def test_code(code, cases, ex_out, time_limit):
@@ -96,8 +105,8 @@ def reward_check(completions, **kwargs):
     for completion in completions:
         code = extract_tags(completion, "<solution>", "</solution>")
         time_limit = prompt_to_time[kwargs['prompt']]
-        cases = prompt_to_completion_train[kwargs['prompt']][0]
-        ex_out = prompt_to_completion_train[kwargs['prompt']][1]
+        cases = prompt_to_completion_train[kwargs['prompt']]['inputs']
+        ex_out = prompt_to_completion_train[kwargs['prompt']]['outputs']
         reward = test_code(code, cases, ex_out, time_limit)
         rewards.append(reward)
     return rewards
@@ -149,7 +158,7 @@ trainer = GRPOTrainer(
     tokenizer=tokenizer,
     reward_funcs=reward_check,
     args=training_args,
-    train_dataset=TACO_train,
-    eval_dataset=TACO_valid
+    train_dataset=[TACO_train[0]],
+    eval_dataset=[TACO_valid[0]]
 )
 trainer.train()
