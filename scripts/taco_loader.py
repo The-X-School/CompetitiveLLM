@@ -12,6 +12,7 @@ import sys
 import re
 import os
 import json
+
 def get_taco_data():
     if (os.path.exists('./taco_train')):
         TACO_train = load_from_disk('./taco_train')

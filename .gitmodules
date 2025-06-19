@@ -1,0 +1,3 @@
+[submodule "LiveCodeBench"]
+	path = LiveCodeBench
+	url = https://github.com/LiveCodeBench/LiveCodeBench.git

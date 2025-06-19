@@ -138,8 +138,16 @@ def soft_format(completions, **kwargs):
         score += 0.5 if response.count(reasoning_end)   == 1 else -1.0
         score += 0.5 if response.count(solution_start)  == 1 else -1.0
         score += 0.5 if response.count(solution_end)    == 1 else -1.0
-        scores.append(score)
-    return scores
+        rewards.append(score)
+    return rewards
+
+def dummy_reward(completions, **kwargs):
+    rewards = []
+    for completion in completions:
+        response = completions[0]['content']
+        rewards.append(-abs(response.length-100))
+    return rewards
+        
 
 peft_config = LoraConfig(task_type=TaskType.CAUSAL_LM, inference_mode=False, r=8, lora_alpha=32, lora_dropout=0.1)
 training_args = GRPOConfig(output_dir="Qwen2-0.5B-GRPO", logging_steps=10, per_device_train_batch_size=24)
@@ -196,3 +204,22 @@ trainer = GRPOTrainer(
     eval_dataset=TACO_valid
 )
 trainer.train()
+
+example = TACO_train[0]
+prompt_messages = example["prompt"]
+prompt_text = tokenizer.apply_chat_template(prompt_messages, add_generation_prompt=True, tokenize=False)
+print(f"Input prompt:\n{prompt_text}\n")
+inputs = tokenizer(prompt_text, return_tensors="pt").to(model.device)
+with torch.no_grad():
+    outputs = model.generate(
+        **inputs,
+        max_new_tokens=512,
+        temperature=0.7,
+        do_sample=True,
+    )
+
+generated_text = tokenizer.decode(outputs[0], skip_special_tokens=True)
+print(f"Generated response:\n{generated_text}")
+
+solution = extract_tags(generated_text, solution_start, solution_end)
+print(f"\nExtracted solution:\n{solution}")
