@@ -1,3 +1,4 @@
 taco_train
 taco_valid
 .env
+__pycache__
