@@ -44,10 +44,10 @@ class TestCase:
 @dataclass
 class CodeResult:
     """Result from executing a piece of code."""
-    output: Optional[str]
     time: float  # seconds
     memory: float  # MB
     verdict: str  # "OK", "TLE", "MLE", "RTE", "WA"
+    output: Optional[str] = None
     error: Optional[str] = None
 
 @dataclass
