@@ -1,6 +1,8 @@
 import os
 from dotenv import load_dotenv
+import logging
 
+logger = logging.getLogger(__name__)
 load_dotenv()
 
 class LLMClient:
@@ -24,6 +26,8 @@ class LLMClient:
             )
         else:
             raise ValueError(f"Unsupported backend: {backend}")
+        
+        logger.info(f"Initialized LLMClient with backend {backend} and model {model}")
 
     def chat(self, messages, **kwargs):
         """Chat completion giving message template"""

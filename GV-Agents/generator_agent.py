@@ -40,7 +40,7 @@ Output format:
 Be thorough and precise in your implementation.
 """
 
-    def generate(self, problem: Problem) -> str:
+    def generate_generator(self, problem: Problem) -> str:
         logger.info(f"Generating test generator for problem: {problem.name}")
         messages = [
             {"role": "system", "content": self.system_prompt},
@@ -59,5 +59,5 @@ if __name__ == '__main__':
         sample_inputs=["1", "2", "3"],
         sample_outputs=["1", "2", "3"]
     )
-    print(agent.generate_inputs(problem))
+    print(agent.generate_generator(problem))
     

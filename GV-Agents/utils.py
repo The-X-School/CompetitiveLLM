@@ -8,11 +8,11 @@ import resource
 from typing import List
 from data_structures import CodeResult
 
-def extract_code(text: str, language: str):
+def extract_code(text: str, language: str = "python"):
     """Extracts markdown code from a text given a language"""
-    compiled = re.findall(f"```{language}(.*?)```", text)
+    compiled = re.findall(f"```{language}(.*?)```", text, re.DOTALL)
     if len(compiled) > 0:
-        return compiled[-1].rsplit()
+        return compiled[-1].strip()
     else:
         return None
 
@@ -51,18 +51,18 @@ def run_code(
     try:
         exec(code)
     except Exception as e:
-        if (get_peak_memory_mb() > memory_limit):
+        if (get_peak_memory_mb() >= memory_limit):
             return CodeResult(
                 time=time.time() - start,
                 memory=get_peak_memory_mb(),
-                verdict="MLE",
+                verdict="Memory Limit Error",
                 error=str(e)
             )
         
         return CodeResult(
             time=time.time() - start,
             memory=get_peak_memory_mb(),
-            verdict="RTE",
+            verdict="Runtime Error",
             error=str(e)
         )
     finally:
@@ -90,7 +90,7 @@ def test_code(code: str, cases: List[str], time_limit: float = 256) -> List[Code
             out = CodeResult(
                 time=time_limit,
                 memory=0,
-                verdict="TLE"
+                verdict="Time Limit Error"
             )
         else:
             try:
@@ -99,7 +99,7 @@ def test_code(code: str, cases: List[str], time_limit: float = 256) -> List[Code
                 out = CodeResult(
                     time=0,
                     memory=0,
-                    verdict="RTE",
+                    verdict="Runtime Error",
                     error=str(e)
                 )
 

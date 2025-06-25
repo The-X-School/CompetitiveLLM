@@ -17,18 +17,11 @@ class Problem:
     sample_outputs: List[str]
     time_limit: float = 2.0  # seconds
     memory_limit: int = 256  # MB
-    
-    def get_full_description(self) -> str:
+
+    def get_description(self) -> str:
         """Get the complete problem description."""
         description = f"Problem: {self.name}\n\n"
         description += f"Statement:\n{self.statement}\n\n"
-        
-        if self.sample_inputs and self.sample_outputs:
-            description += "Sample Test Cases:\n"
-            for i, (inp, out) in enumerate(zip(self.sample_inputs, self.sample_outputs)):
-                description += f"Input {i+1}:\n{inp}\n"
-                description += f"Output {i+1}:\n{out}\n\n"
-        
         description += f"Time Limit: {self.time_limit} seconds\n"
         description += f"Memory Limit: {self.memory_limit} MB\n"
         
@@ -51,8 +44,8 @@ class CodeResult:
     error: Optional[str] = None
 
 @dataclass
-class GeneratorCommand:
-    """Represents a generator command with parameters."""
+class Command:
+    """Represents a terminal command with parameters."""
     command: str
     description: str
     expected_properties: List[str]
@@ -61,7 +54,7 @@ class GeneratorCommand:
 class GeneratorResult:
     """Result from the Generator Agent."""
     generator_code: str
-    commands: List[GeneratorCommand]
+    commands: List[Command]
     compilation_successful: bool = False
     compilation_error: Optional[str] = None
     test_cases: List[TestCase] = None
@@ -77,10 +70,6 @@ class ValidationError:
 @dataclass
 class ValidatorResult:
     """Result from the Validator Agent."""
-    validator_code: str
-    compilation_successful: bool = False
-    compilation_error: Optional[str] = None
-    validation_results: List[ValidationResult] = None
     validation_errors: List[ValidationError] = None
 
 @dataclass
