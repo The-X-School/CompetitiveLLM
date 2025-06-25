@@ -84,7 +84,7 @@ Since Tanya eats candy instantly, the required time is four seconds.
     
     problem = Problem(
         id="1",
-        name="Tanya is Stupid",
+        name="Tanya and Colored Candies",
         statement=statement,
         sample_inputs=["5 3 10\n1 2 3 4 5\nRGBRR", "2 1 15\n5 6\nRG"],
         sample_outputs=["4", "-1"]
