@@ -5,16 +5,50 @@ import io
 import sys
 import multiprocessing
 import resource
+import ast
 from typing import List
 from data_structures import CodeResult
 
-def extract_code(text: str, language: str = "python"):
+# Import libraries to make available for the test code that is generated
+import math
+import random
+import numpy as np
+import sys
+
+default_globals = {
+    "__builtins__": __builtins__,
+    "math": math,
+    "random": random,
+    "np": np,
+    "sys": sys
+}
+
+# Copied from LCB (livecodebench)
+def clean_if_main(code: str) -> str:
+    try:
+        astree = ast.parse(code)
+        last_block = astree.body[-1]
+        if isinstance(last_block, ast.If):
+            condition = last_block.test
+            if ast.unparse(condition).strip() == "__name__ == '__main__'":
+                code = (
+                    ast.unparse(astree.body[:-1]) + "\n" + ast.unparse(last_block.body)  # type: ignore
+                )
+    except:
+        pass
+
+    return code
+
+def extract_code(text: str, language: str = "python") -> str:
     """Extracts markdown code from a text given a language"""
     compiled = re.findall(f"```{language}(.*?)```", text, re.DOTALL)
     if len(compiled) > 0:
-        return compiled[-1].strip()
+        return clean_if_main(compiled[-1].strip())
     else:
         return None
+
+def extract_configuration(text: str) -> List[str]:
+    return re.findall(r"\*\*Configuration:\*\* `(.*?)`", text, re.DOTALL)
 
 def run_code(
     code: str,
@@ -26,6 +60,7 @@ def run_code(
 
     # TODO: error on setting limit, always reports memory limit error
     # example is when i gave it 32gb of memory but it was reporting out of memory even after using only 16mb (1/2048)
+    
     # Set memory limit
     # memory_limit_bytes = memory_limit * 1024 * 1024 # convert to bytes
     # resource.setrlimit(resource.RLIMIT_AS, (memory_limit_bytes, memory_limit_bytes))
@@ -44,29 +79,32 @@ def run_code(
     start = time.time()
 
     # Mock input
-    input_lines = iter(case_input.splitlines())
-    builtins.input = lambda: next(input_lines)
+    input_stream = io.StringIO(case_input)
+    sys.stdin = input_stream
+    builtins.input = lambda: input_stream.readline().rstrip('\n')  # Optional override
 
     # Capture output
     buf = io.StringIO()
     sys.stdout = buf
     try:
-        exec(code)
+        exec(code, default_globals)
     except Exception as e:
         if (get_peak_memory_mb() >= memory_limit):
-            return CodeResult(
+            output_queue.put(CodeResult(
                 time=time.time() - start,
                 memory=get_peak_memory_mb(),
                 verdict="Memory Limit Error",
                 error=str(e)
-            )
+            ), 0)
+            return
         
-        return CodeResult(
+        output_queue.put(CodeResult(
             time=time.time() - start,
             memory=get_peak_memory_mb(),
             verdict="Runtime Error",
             error=str(e)
-        )
+        ), 0)
+        return
     finally:
         sys.stdout = sys.__stdout__
 
@@ -76,7 +114,7 @@ def run_code(
         memory=get_peak_memory_mb(),
         verdict="OK"
     )
-    
+        
     output_queue.put(result, 0)
 
 def test_code(code: str, cases: List[str], time_limit: float = 256) -> List[CodeResult]:

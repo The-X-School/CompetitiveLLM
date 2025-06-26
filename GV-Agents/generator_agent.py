@@ -1,67 +1,132 @@
 from data_structures import *
 from llm_client import LLMClient
+from utils import extract_code, extract_configuration, test_code
+from typing import Optional
 import logging
 
 logger = logging.getLogger(__name__)
 
 class GeneratorAgent:
     """Agent responsible for generating test cases for a given problem."""
-    def __init__(self, config: Config):
+    def __init__(self, client: LLMClient, config: Config):
         """Initializes the agent."""
-        self.client = LLMClient(config.generator_backend, config.generator_model)
+        self.client = client
+        self.messages = []
         self.num_inputs = config.num_inputs_per_problem
         self.system_prompt = \
 f"""
-You are an expert competitive programming problem setter and test case generator. Your task is to create high-quality test case generators for competitive programming problems.
+You are an expert competitive programming problem setter and test case generator. Your task is to write high-quality Python generators for competitive programming problems.
 
-Your responsibilities:
-1. Analyze the problem statement carefully to understand all constraints
-2. Identify potential edge cases and corner cases
-3. Design adversarial test cases that can catch common mistakes
-4. Write the generator program in Python that takes command line arguments
-5. Provide generator commands that cover various data sizes and special cases
+**Responsibilities:**
+- Understand the problem and its constraints.
+- Identify edge and corner cases.
+    - Design adversarial and diverse test cases.
+    - Write a Python generator that:
+        - Reads configuration from stdin (e.g., int int str)
+        - Outputs the test case to stdout
+        - Uses randomness (no hardcoding), but is deterministic based on the input
+- MAINTAINS STRICT CONFIGURATIOn CONSISTENCY (CONSTANT NUMBER OF CONFIGURATION EVERY TIME)
+    - You MUST FOLLOW strict configuration consistency, or else it will break
+- Make sure you ONLY take in the configuration as the inputs, NOT the final generrated inputs to the problem
 
-Guidelines:
-- Ensure the generator respects all problem constraints (very important)
-- Generate diverse test cases including small, medium, and large inputs
-- Some ideas for covering edge cases:
-    - Minimum/maximum values
-    - Extreme inputs (with all 0s, all 1s, etc.)
-    - For graphs, try trees, chain, and dense graphs
-- Make the generator deterministic based on command-line arguments
-- Provide clear, descriptive commands with expected properties
+**Guidelines:**
+- Always respect problem constraints
+- Cover a range of sizes: small, medium, large
+- Include edge cases (e.g., min/max values, all 0s/1s, special graph structures)
+- Format generator input examples exactly like this:
+    - **Configuration:** `\<inputs>`
+    - **Description:** `\<description>`
+- The generator must read from stdin and print to stdout
 
 Output format:
-1. First, provide analysis of the problem constraints
-2. Then provide the complete Python generator code
-3. Finally, provide exactly {self.num_inputs} generator commands with descriptions
+1. Problem constraint analysis
+2. Complete generator code (in Python)
+3. Exactly {self.num_inputs} configuration examples with descriptions
 
-Be thorough and precise in your implementation.
+Be precise, deterministic, and thorough.
 """
-
-    def generate_generator(self, problem: Problem) -> str:
+    
+    def generate_generator(
+        self,
+        problem: Problem,
+    ) -> GeneratorResult:
         logger.info(f"Generating test generator for problem: {problem.name}")
-        messages = [
-            {"role": "system", "content": self.system_prompt},
-            {"role": "user", "content": problem.get_description()}
-        ]
-        output = self.client.chat(messages, temperature=0.0)
-        return output
+        
+        if self.messages == []:
+            self.messages = [
+                {"role": "system", "content": self.system_prompt},
+                {"role": "user", "content": problem.get_description()}
+            ]
+            
+        output = self.client.chat(self.messages, temperature=0.0)
+        self.messages.append({"role": "assistant", "content": output})
+        code = extract_code(output)
+        commands = extract_configuration(output)
+        tests = test_code(code, commands)
+        return GeneratorResult(
+            response = output,
+            code = code,
+            commands = commands,
+            inputs = [test.output for test in tests]
+        )
         
 if __name__ == '__main__':
     config = Config(
-        generator_backend = "openrouter",
-        generator_model = "google/gemma-3-27b-it",
-        validator_backend = "openrouter",
-        validator_model = "google/gemma-3-27b-it"
+        generator = ClientConfig("openrouter", "deepseek/deepseek-chat-v3-0324"),
+        validator = ClientConfig("openrouter", "deepseek/deepseek-chat-v3-0324")
     )
-    agent = GeneratorAgent(config)
+    client = LLMClient(config.generator)
+    agent = GeneratorAgent(client, config)
+    
+    statement = \
+"""
+There are $n$ candy boxes in front of Tanya. The boxes are arranged in a row from left to right, numbered from $1$ to $n$. The $i$-th box contains $r_i$ candies, candies have the color $c_i$ (the color can take one of three values - red, green, or blue). All candies inside a single box have the same color (and it is equal to $c_i$).
+Initially, Tanya is next to the box number $s$. Tanya can move to the neighbor box (that is, with a number that differs by one) or eat candies in the current box. Tanya eats candies instantly, but the movement takes one second.
+If Tanya eats candies from the box, then the box itself remains in place, but there is no more candies in it. In other words, Tanya always eats all the candies from the box and candies in the boxes are not refilled.
+It is known that Tanya cannot eat candies of the same color one after another (that is, the colors of candies in two consecutive boxes from which she eats candies are always different). In addition, Tanya's appetite is constantly growing, so in each next box from which she eats candies, there should be strictly more candies than in the previous one.
+Note that for the first box from which Tanya will eat candies, there are no restrictions on the color and number of candies.
+Tanya wants to eat at least $k$ candies. What is the minimum number of seconds she will need? Remember that she eats candies instantly, and time is spent only on movements.
+
+-----Input-----
+The first line contains three integers $n$, $s$ and $k$ ($1 \\le n \\le 50$, $1 \\le s \\le n$, $1 \\le k \\le 2000$) - number of the boxes, initial position of Tanya and lower bound on number of candies to eat. The following line contains $n$ integers $r_i$ ($1 \\le r_i \\le 50$) - numbers of candies in the boxes. The third line contains sequence of $n$ letters 'R', 'G' and 'B', meaning the colors of candies in the correspondent boxes ('R' for red, 'G' for green, 'B' for blue). Recall that each box contains candies of only one color. The third line contains no spaces.
+
+-----Output-----
+Print minimal number of seconds to eat at least $k$ candies. If solution doesn't exist, print "-1".
+
+-----Examples-----
+Input
+5 3 10
+1 2 3 4 5
+RGBRR
+
+Output
+4
+
+Input
+2 1 15
+5 6
+RG
+
+Output
+-1
+
+-----Note-----
+The sequence of actions of Tanya for the first example:
+  move from the box $3$ to the box $2$;  eat candies from the box $2$;  move from the box $2$ to the box $3$;  eat candy from the box $3$;  move from the box $3$ to the box $4$;  move from the box $4$ to the box $5$;  eat candies from the box $5$. 
+Since Tanya eats candy instantly, the required time is four seconds.
+"""
+    
     problem = Problem(
         id="1",
-        name="Test Problem",
-        statement="This is a test problem.",
-        sample_inputs=["1", "2", "3"],
-        sample_outputs=["1", "2", "3"]
+        name="Tanya and Colored Candies",
+        statement=statement,
+        sample_inputs=["5 3 10\n1 2 3 4 5\nRGBRR", "2 1 15\n5 6\nRG"],
+        sample_outputs=["4", "-1"]
     )
-    print(agent.generate_generator(problem))
+    
+    response = agent.generate_generator(problem)
+    print(response.response)
+    print(response.code)
+    print(response.commands)
+    print(response.inputs)
     

@@ -1,5 +1,6 @@
 import os
 from dotenv import load_dotenv
+from data_structures import ClientConfig
 import logging
 
 logger = logging.getLogger(__name__)
@@ -7,17 +8,17 @@ load_dotenv()
 
 class LLMClient:
     """Unified client for OpenRouter and HuggingFace Transformers for chatting with LLMs."""
-    def __init__(self, backend: str, model: str):
+    def __init__(self, client_config: ClientConfig):
         """Initializes the client"""
-        self.backend = backend
-        self.model = model
+        self.backend = client_config.backend
+        self.model = client_config.model
 
-        if backend == "transformers":
+        if self.backend == "transformers":
             from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
-            self.tokenizer = AutoTokenizer.from_pretrained(model)
-            self.model = AutoModelForCausalLM.from_pretrained(model)
+            self.tokenizer = AutoTokenizer.from_pretrained(self.model)
+            self.model = AutoModelForCausalLM.from_pretrained(self.model)
             self.generator = pipeline("text-generation", model=self.model, tokenizer=self.tokenizer)
-        elif backend == "openrouter":
+        elif self.backend == "openrouter":
             from openai import OpenAI
 
             self.client = OpenAI(
@@ -25,9 +26,9 @@ class LLMClient:
                 base_url="https://openrouter.ai/api/v1",
             )
         else:
-            raise ValueError(f"Unsupported backend: {backend}")
+            raise ValueError(f"Unsupported backend: {self.backend}")
         
-        logger.info(f"Initialized LLMClient with backend {backend} and model {model}")
+        logger.info(f"Initialized LLMClient with backend {self.backend} and model {self.model}")
 
     def chat(self, messages, **kwargs):
         """Chat completion giving message template"""
@@ -38,7 +39,7 @@ class LLMClient:
             response = self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
-                temperature=kwargs.get("temperature", 1.0)
+                temperature=kwargs.get("temperature", 0.0)
             )
             return response.choices[0].message.content
 
@@ -48,8 +49,8 @@ if __name__ == "__main__":
     
     messages = [{"role": "user", "content": "Hello, World!"}]
     
-    client = LLMClient("openrouter", "google/gemma-3-27b-it")
+    client = LLMClient(ClientConfig("openrouter", "deepseek/deepseek-chat-v3-0324"))
     print(client.chat(messages, temperature=0.0))
     
-    client = LLMClient("transformers", "google/gemma-3-27b-it")
+    client = LLMClient(ClientConfig("transformers", "google/gemma-3-1b-it"))
     print(client.chat(messages, temperature=0.0))

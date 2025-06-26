@@ -2,19 +2,15 @@ from dataclasses import dataclass
 from typing import List, Optional
 from enum import Enum
 
-
-class ValidationResult(Enum):
-    """Validation result status."""
-    VALID = "valid"
-    INVALID = "invalid"
+@dataclass
+class ClientConfig:
+    backend: str
+    model: str
 
 @dataclass
 class Config:
-    generator_model: str
-    generator_backend: str
-    
-    validator_model: str
-    validator_backend: str
+    generator: ClientConfig
+    validator: ClientConfig
     
     max_retries: int = 3
     num_inputs_per_problem: int = 15
@@ -65,29 +61,13 @@ class Command:
 @dataclass
 class GeneratorResult:
     """Result from the Generator Agent."""
-    generator_code: str
+    response: str
+    code: str
     commands: List[Command]
-    compilation_successful: bool = False
-    compilation_error: Optional[str] = None
-    test_cases: List[TestCase] = None
-
-@dataclass
-class ValidationError:
-    """Represents a validation error."""
-    error_type: str
-    message: str
-    line_number: Optional[int] = None
-    constraint_violated: Optional[str] = None
+    inputs: Optional[List[str]] = None
 
 @dataclass
 class ValidatorResult:
     """Result from the Validator Agent."""
-    validation_errors: List[ValidationError] = None
-
-@dataclass
-class AgentFeedback:
-    """Feedback provided to agents for improvement."""
-    success: bool
-    message: str
-    errors: List[str] = None
-    suggestions: List[str] = None
+    response: str
+    code: str

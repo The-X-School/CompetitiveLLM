@@ -3,52 +3,75 @@ from llm_client import LLMClient
 from utils import extract_code, test_code
 
 class ValidatorAgent:
-    def __init__(self, config: Config):
-        self.client = LLMClient(config.validator_backend, config.validator_model)
+    def __init__(self, client: LLMClient):
+        self.client = client
+        self.messages = []
         self.system_prompt = \
-f"""You are an expert competitive programming judge and test case validator. Your task is to create validators that check if a test case input satisfy all problem constraints.
+f"""
+You are an expert competitive programming judge and validator. Your task is to write Python validators that ensure test case inputs fully comply with the problem constraints.
 
-Your responsibilities:
-1. Carefully analyze the problem statement to identify ALL constraints
-2. Write a Python validator program that checks every constraint
-3. Throw an exception with a descriptive error message when a constraint is violated
-4. Handle edge cases and boundary conditions properly
-5. Ensure the validator is robust and catches all invalid inputs
+**Responsibilities:**
+- Carefully read the problem to identify all constraints.
+- Write a Python validator that:
+    - Reads input from stdin
+    - Checks every constraint
+    - Raises exceptions with clear error messages (include line numbers when possible)
+- Properly handle edge cases and boundary conditions.
+- Make the validator strict and robust — it must catch any invalid input.
 
-Guidelines:
-- Check data ranges, format requirements, and structural constraints
-- Provide specific error messages with line numbers when possible
-- Handle all edge cases mentioned in the problem
-- Be thorough - missing a constraint can lead to invalid test cases
+**Guidelines:**
+- Validate data ranges, input format, and structural rules
+- Be explicit and informative in error messages
+- Do not skip rare or tricky edge cases
+- Validators must read from stdin and perform real checks (not placeholders)
 
-Output format:
-1. First, provide analysis of all constraints that need to be checked
-2. Then provide the complete Python validator code
-3. Explain the validation logic briefly
+**Output format:**
+1. A clear summary of all constraints to be validated
+2. Full Python validator code
+3. A brief explanation of the validation logic
 
-Be extremely thorough in identifying and checking constraints."""
+Be precise and exhaustive — missing a single constraint could break the problem."""
     
-    def generate_validator(self, problem: Problem) -> str:
-        messages = [
-            {"role": "system", "content": self.system_prompt},
-            {"role": "user", "content": problem.get_description()}
-        ]
-        output = self.client.chat(messages, temperature=0.0)
-        self.validator_code = extract_code(output)
-        return output
+    def generate_validator(self, problem: Problem) -> ValidatorResult:
+        if self.messages == []:
+            self.messages = [
+                {"role": "system", "content": self.system_prompt},
+                {"role": "user", "content": problem.get_description()}
+            ]
+        
+        output = self.client.chat(self.messages, temperature=0.0)
+        self.messages.append({"role": "assistant", "content": output})
+        self.code = extract_code(output)
+        return ValidatorResult(output, self.code)
     
-    def test_inputs(self, test_cases: List[TestCase]) -> List[CodeResult]:
-        return test_code(self.validator_code, test_cases)
+    def test_inputs(self, code: str, test_cases: List[str]) -> List[CodeResult]:
+        return test_code(code, test_cases)
+    
+    def give_feedback(self, commands: List[str], test_results: List[CodeResult]) -> str:
+        feedback = ""
+        for i in range(len(commands)):
+            if test_results[i].verdict == "OK": continue
+            feedback += f"- Test case {i+1} that was generated with command `{commands[i]}` failed with verdict {test_results[i].verdict}. Error: {test_results[i].error}\n"
+        
+        if feedback == "": feedback = "All test cases passed!"
+        else:
+            feedback = \
+f"""
+Some test cases did not meet the problem constraints:
+{feedback}
+
+Please recode the generator given these errors to meet the problem constraints, and provide the generator commands to fix these cases.
+"""
+        return feedback
 
 if __name__ == "__main__":
     config = Config(
-        generator_backend = "openrouter",
-        generator_model = "google/gemma-3-27b-it",
-        validator_backend = "openrouter",
-        validator_model = "google/gemma-3-27b-it"
+        generator = ClientConfig("openrouter", "deepseek/deepseek-chat-v3-0324"),
+        validator = ClientConfig("openrouter", "deepseek/deepseek-chat-v3-0324")
     )
     
-    agent = ValidatorAgent(config)
+    client = LLMClient(config.validator)
+    agent = ValidatorAgent(client)
     
     statement = \
 """
@@ -96,6 +119,6 @@ Since Tanya eats candy instantly, the required time is four seconds.
         sample_outputs=["4", "-1"]
     )
     
-    agent.generate_validator(problem)
-    print("Validator Code:", agent.validator_code)
-    print(agent.test_inputs(problem.sample_inputs))
+    result = agent.generate_validator(problem)
+    print("Validator Code:", result.code)
+    print(agent.test_inputs(result.code, problem.sample_inputs))
