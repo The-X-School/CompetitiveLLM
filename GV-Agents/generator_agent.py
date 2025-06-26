@@ -1,6 +1,5 @@
 from data_structures import *
 from llm_client import LLMClient
-from typing import List
 import logging
 
 logger = logging.getLogger(__name__)
