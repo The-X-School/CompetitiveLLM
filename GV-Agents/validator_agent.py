@@ -3,8 +3,8 @@ from llm_client import LLMClient
 from utils import extract_code, test_code
 
 class ValidatorAgent:
-    def __init__(self, client: LLMClient):
-        self.client = client
+    def __init__(self, config: Config):
+        self.client = LLMClient(config.validator_backend, config.validator_model)
         self.system_prompt = \
 f"""You are an expert competitive programming judge and test case validator. Your task is to create validators that check if a test case input satisfy all problem constraints.
 
@@ -41,8 +41,14 @@ Be extremely thorough in identifying and checking constraints."""
         return test_code(self.validator_code, test_cases)
 
 if __name__ == "__main__":
-    client = LLMClient("openrouter", "google/gemma-3-27b-it")
-    agent = ValidatorAgent(client)
+    config = Config(
+        generator_backend = "openrouter",
+        generator_model = "google/gemma-3-27b-it",
+        validator_backend = "openrouter",
+        validator_model = "google/gemma-3-27b-it"
+    )
+    
+    agent = ValidatorAgent(config)
     
     statement = \
 """

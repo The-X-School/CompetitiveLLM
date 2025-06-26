@@ -2,10 +2,22 @@ from dataclasses import dataclass
 from typing import List, Optional
 from enum import Enum
 
+
 class ValidationResult(Enum):
     """Validation result status."""
     VALID = "valid"
     INVALID = "invalid"
+
+@dataclass
+class Config:
+    generator_model: str
+    generator_backend: str
+    
+    validator_model: str
+    validator_backend: str
+    
+    max_retries: int = 3
+    num_inputs_per_problem: int = 15
 
 @dataclass
 class Problem:

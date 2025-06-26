@@ -24,7 +24,9 @@ def run_code(
 ) -> CodeResult:
     """Runs a piece of code with given inputs and captures the outputs"""
 
-    # Set memory limit or some crap
+    # TODO: error on setting limit, always reports memory limit error
+    # example is when i gave it 32gb of memory but it was reporting out of memory even after using only 16mb (1/2048)
+    # Set memory limit
     # memory_limit_bytes = memory_limit * 1024 * 1024 # convert to bytes
     # resource.setrlimit(resource.RLIMIT_AS, (memory_limit_bytes, memory_limit_bytes))
     # resource.setrlimit(resource.RLIMIT_DATA, (memory_limit_bytes, memory_limit_bytes))

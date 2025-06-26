@@ -7,10 +7,10 @@ logger = logging.getLogger(__name__)
 
 class GeneratorAgent:
     """Agent responsible for generating test cases for a given problem."""
-    def __init__(self, client: LLMClient, num_cases: int = 50):
+    def __init__(self, config: Config):
         """Initializes the agent."""
-        self.client = client
-        self.num_cases = num_cases
+        self.client = LLMClient(config.generator_backend, config.generator_model)
+        self.num_inputs = config.num_inputs_per_problem
         self.system_prompt = \
 f"""
 You are an expert competitive programming problem setter and test case generator. Your task is to create high-quality test case generators for competitive programming problems.
@@ -35,7 +35,7 @@ Guidelines:
 Output format:
 1. First, provide analysis of the problem constraints
 2. Then provide the complete Python generator code
-3. Finally, provide exactly {num_cases} generator commands with descriptions
+3. Finally, provide exactly {self.num_inputs} generator commands with descriptions
 
 Be thorough and precise in your implementation.
 """
@@ -44,14 +44,19 @@ Be thorough and precise in your implementation.
         logger.info(f"Generating test generator for problem: {problem.name}")
         messages = [
             {"role": "system", "content": self.system_prompt},
-            {"role": "user", "content": problem.get_full_description()}
+            {"role": "user", "content": problem.get_description()}
         ]
         output = self.client.chat(messages, temperature=0.0)
         return output
         
 if __name__ == '__main__':
-    client = LLMClient("openrouter", "google/gemma-3-27b-it")
-    agent = GeneratorAgent(client)
+    config = Config(
+        generator_backend = "openrouter",
+        generator_model = "google/gemma-3-27b-it",
+        validator_backend = "openrouter",
+        validator_model = "google/gemma-3-27b-it"
+    )
+    agent = GeneratorAgent(config)
     problem = Problem(
         id="1",
         name="Test Problem",
