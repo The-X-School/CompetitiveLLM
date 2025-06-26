@@ -13,7 +13,6 @@ from data_structures import CodeResult
 import math
 import random
 import numpy as np
-import sys
 
 default_globals = {
     "__builtins__": __builtins__,
@@ -50,6 +49,21 @@ def extract_code(text: str, language: str = "python") -> str:
 def extract_configuration(text: str) -> List[str]:
     return re.findall(r"\*\*Configuration:\*\* `(.*?)`", text, re.DOTALL)
 
+# TODO: Fix ts
+def reliability_guard(memory_limit: float = 256):
+    hard = resource.getrlimit(resource.RLIMIT_AS)[1]
+    memory_limit_bytes = memory_limit * 1024 * 1024  # in bytes
+
+    if memory_limit_bytes > hard:
+        memory_limit_bytes = hard  # Cap to avoid ValueError
+        
+    print(memory_limit_bytes, hard)
+        
+    resource.setrlimit(resource.RLIMIT_AS, (memory_limit_bytes, memory_limit_bytes))
+    resource.setrlimit(resource.RLIMIT_DATA, (memory_limit_bytes, memory_limit_bytes))
+    if not sys.platform == "darwin":
+       resource.setrlimit(resource.RLIMIT_STACK, (memory_limit_bytes, memory_limit_bytes))
+
 def run_code(
     code: str,
     case_input: str,
@@ -57,16 +71,8 @@ def run_code(
     memory_limit: float = 256
 ) -> CodeResult:
     """Runs a piece of code with given inputs and captures the outputs"""
-
-    # TODO: error on setting limit, always reports memory limit error
-    # example is when i gave it 32gb of memory but it was reporting out of memory even after using only 16mb (1/2048)
     
-    # Set memory limit
-    # memory_limit_bytes = memory_limit * 1024 * 1024 # convert to bytes
-    # resource.setrlimit(resource.RLIMIT_AS, (memory_limit_bytes, memory_limit_bytes))
-    # resource.setrlimit(resource.RLIMIT_DATA, (memory_limit_bytes, memory_limit_bytes))
-    # if not sys.platform == "darwin":
-    #     resource.setrlimit(resource.RLIMIT_STACK, (memory_limit_bytes, memory_limit_bytes))
+    #reliability_guard(memory_limit)
     
     def get_peak_memory_mb():
         """Get peak memory usage"""
