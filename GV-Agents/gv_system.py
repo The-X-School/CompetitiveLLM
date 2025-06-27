@@ -1,29 +1,46 @@
-import tempfile
+import logging
+import json
+import tqdm
+import dataclasses
+import asyncio
+from utils import load_json, save_json
 from data_structures import *
 from llm_client import LLMClient
 from generator_agent import GeneratorAgent
 from validator_agent import ValidatorAgent
 
+logger = logging.getLogger(__name__)
+
 class GVSystem:
     """Generator-Validator System for the two agents to communicate"""
-    def __init__(self, config: Config):
-        self.generator_agent = GeneratorAgent(LLMClient(config.generator), config)
-        self.validator_agent = ValidatorAgent(LLMClient(config.validator))
+    def __init__(self, generator: LLMClient, validator: LLMClient, config: Config):
+        self.generator_agent = GeneratorAgent(generator, config)
+        self.validator_agent = ValidatorAgent(validator)
         self.max_retries = config.max_retries
+        self.good_cases_path = config.good_cases_path
+        self.bad_cases_path = config.bad_cases_path
     
-    # TODO: finish ts
-    def generate_test_cases(self, problem: Problem) -> List[str]:
+    async def generate_test_cases(self, problem: Problem) -> List[str]:
         """Generate test cases for a given problem"""
         test_cases = []
         generator_result = []
-        validator_result = self.validator_agent.generate_validator(problem)
-        print("Validator:", validator_result.response)
+        if (
+            self.generator_agent.client.backend == "openrouter" and
+            self.validator_agent.client.backend == "openrouter"
+        ):
+            validator_result, generator_result = await asyncio.gather(
+                self.validator_agent.generate_validator(problem),
+                self.generator_agent.generate_generator(problem)
+            )
+        else:
+            validator_result = await self.validator_agent.generate_validator(problem)
+            generator_result = await self.generator_agent.generate_generator(problem)
+            
+        print("Validator:", validator_result.code)
+        print("\nGenerator:", generator_result.inputs)
+        #print("\nGenerator:", generator_result.response)
+        
         for i in range(self.max_retries):
-            generator_result = self.generator_agent.generate_generator(problem)
-            print("\nGenerator:\n", generator_result.response)
-            print("\nGENERATOR CODE:\n", generator_result.code)
-            print("\nGENERATOR COMMANDS:\n", generator_result.commands)
-            print("\nGENERATOR RESPONSE INPUTS\n", generator_result.inputs)
             test_cases = self.validator_agent.test_inputs(
                 validator_result.code,
                 generator_result.inputs
@@ -37,23 +54,54 @@ class GVSystem:
             print("\nValidator:", feedback)
             if feedback == "All test cases passed!": break
             self.generator_agent.messages.append({"role": "user", "content": feedback})
+            
+            generator_result = await self.generator_agent.generate_generator(problem)
+            print("\nGenerator:", generator_result.inputs)
+            #print("\nGenerator:", generator_result.response)
         
         inputs = []
+        good_cases = load_json(self.good_cases_path, {})
+        bad_cases = load_json(self.bad_cases_path, {})
+        
+        if problem.id not in good_cases:
+            good_cases[problem.id] = []
+        
+        if problem.id not in bad_cases:
+            bad_cases[problem.id] = []
+        
         for i in range(len(test_cases)):
             if test_cases[i].verdict == "OK":
+                good_cases[problem.id].append(generator_result.inputs[i])
                 inputs.append(generator_result.inputs[i])
+            else:
+                bad_cases[problem.id].append("inputs": generator_result.inputs[i])
         
-        print(inputs)
+        save_json(self.good_cases_path, good_cases)
+        save_json(self.bad_cases_path, bad_cases)
+            
         return inputs
+
+def run_multi_gv(problems: List[Problem], config: Config):
+    """Run the GV system on multiple problems"""
+    generator = LLMClient(config.generator)
+    validator = LLMClient(config.validator)
     
-    def multiple_gen_test_cases(self, problem: Problem):
-        pass
+    for problem in tqdm.tqdm(problems):
+        print(problem.statement)
+        logging.info(f"Generating test cases for problem {problem.name} with ID {problem.id}")
+        system = GVSystem(generator, validator, config)
+        asyncio.run(system.generate_test_cases(problem))
 
 if __name__ == '__main__':
-    system = GVSystem(Config(
+    config = Config(
         generator = ClientConfig("openrouter", "deepseek/deepseek-chat-v3-0324"),
-        validator = ClientConfig("openrouter", "deepseek/deepseek-chat-v3-0324")
-    ))
+        validator = ClientConfig("openrouter", "deepseek/deepseek-chat-v3-0324"),
+        good_cases_path = "data/good_cases.json",
+        bad_cases_path = "data/bad_cases.json"
+    )
+    generator = LLMClient(config.generator)
+    validator = LLMClient(config.validator)
+    system = GVSystem(generator, validator, config)
     
     statement = \
 """
@@ -101,4 +149,4 @@ Since Tanya eats candy instantly, the required time is four seconds.
         sample_outputs=["4", "-1"]
     )
     
-    print(system.generate_test_cases(problem))
+    asyncio.run(system.generate_test_cases(problem))

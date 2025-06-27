@@ -1,7 +1,10 @@
 from data_structures import *
 from llm_client import LLMClient
 from utils import extract_code, test_code
+import asyncio
+import logging
 
+logger = logging.getLogger(__name__)
 class ValidatorAgent:
     def __init__(self, client: LLMClient):
         self.client = client
@@ -32,19 +35,22 @@ You are an expert competitive programming judge and validator. Your task is to w
 
 Be precise and exhaustive — missing a single constraint could break the problem."""
     
-    def generate_validator(self, problem: Problem) -> ValidatorResult:
+    async def generate_validator(self, problem: Problem) -> ValidatorResult:
+        logger.info(f"Generating validator...")
         if self.messages == []:
             self.messages = [
                 {"role": "system", "content": self.system_prompt},
                 {"role": "user", "content": problem.get_description()}
             ]
         
-        output = self.client.chat(self.messages, temperature=0.0)
+        output = await self.client.chat(self.messages, temperature=0.0)
+        print(output)
         self.messages.append({"role": "assistant", "content": output})
         self.code = extract_code(output)
         return ValidatorResult(output, self.code)
     
     def test_inputs(self, code: str, test_cases: List[str]) -> List[CodeResult]:
+        logger.info("Validating inputs generator by the generator agent")
         return test_code(code, test_cases)
     
     def give_feedback(self, commands: List[str], test_results: List[CodeResult]) -> str:
@@ -119,6 +125,6 @@ Since Tanya eats candy instantly, the required time is four seconds.
         sample_outputs=["4", "-1"]
     )
     
-    result = agent.generate_validator(problem)
+    result = asyncio.run(agent.generate_validator(problem))
     print("Validator Code:", result.code)
     print(agent.test_inputs(result.code, problem.sample_inputs))

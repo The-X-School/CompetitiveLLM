@@ -2,6 +2,7 @@ import os
 from dotenv import load_dotenv
 from data_structures import ClientConfig
 import logging
+import asyncio
 
 logger = logging.getLogger(__name__)
 load_dotenv()
@@ -19,9 +20,9 @@ class LLMClient:
             self.model = AutoModelForCausalLM.from_pretrained(self.model)
             self.generator = pipeline("text-generation", model=self.model, tokenizer=self.tokenizer)
         elif self.backend == "openrouter":
-            from openai import OpenAI
+            from openai import AsyncOpenAI
 
-            self.client = OpenAI(
+            self.client = AsyncOpenAI(
                 api_key=os.getenv("OPENROUTER_API_KEY"),
                 base_url="https://openrouter.ai/api/v1",
             )
@@ -30,13 +31,13 @@ class LLMClient:
         
         logger.info(f"Initialized LLMClient with backend {self.backend} and model {self.model}")
 
-    def chat(self, messages, **kwargs):
+    async def chat(self, messages, **kwargs):
         """Chat completion giving message template"""
         if self.backend == "transformers":
             output = self.generator(messages, **kwargs)[0]["generated_text"]
             return output
         elif self.backend == "openrouter":
-            response = self.client.chat.completions.create(
+            response = await self.client.chat.completions.create(
                 model=self.model,
                 messages=messages,
                 temperature=kwargs.get("temperature", 0.0)
@@ -50,7 +51,7 @@ if __name__ == "__main__":
     messages = [{"role": "user", "content": "Hello, World!"}]
     
     client = LLMClient(ClientConfig("openrouter", "deepseek/deepseek-chat-v3-0324"))
-    print(client.chat(messages, temperature=0.0))
+    print(asyncio.run(client.chat(messages, temperature=0.0)))
     
     client = LLMClient(ClientConfig("transformers", "google/gemma-3-1b-it"))
-    print(client.chat(messages, temperature=0.0))
+    print(asyncio.run(client.chat(messages, temperature=0.0)))

@@ -3,6 +3,7 @@ from llm_client import LLMClient
 from utils import extract_code, extract_configuration, test_code
 from typing import Optional
 import logging
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -25,17 +26,18 @@ You are an expert competitive programming problem setter and test case generator
         - Reads configuration from stdin (e.g., int int str)
         - Outputs the test case to stdout
         - Uses randomness (no hardcoding), but is deterministic based on the input
-- MAINTAINS STRICT CONFIGURATIOn CONSISTENCY (CONSTANT NUMBER OF CONFIGURATION EVERY TIME)
+- MAINTAINS STRICT CONFIGURATION CONSISTENCY (CONSTANT NUMBER OF CONFIGURATION EVERY TIME)
     - You MUST FOLLOW strict configuration consistency, or else it will break
-- Make sure you ONLY take in the configuration as the inputs, NOT the final generrated inputs to the problem
+    - Make sure you ONLY take in the configuration as the inputs, NOT the final generrated inputs to the problem
+    - For example, if it has 3 configuration variables, IT MUST HAVE 3 EVERY TIME (e.g. "1 2 3", "4 2 3", but not "1 4 2 1" or "1 4 RGB")
 
 **Guidelines:**
 - Always respect problem constraints
 - Cover a range of sizes: small, medium, large
 - Include edge cases (e.g., min/max values, all 0s/1s, special graph structures)
 - Format generator input examples exactly like this:
-    - **Configuration:** `\<inputs>`
-    - **Description:** `\<description>`
+    - **Configuration:** `<inputs>`
+    - **Description:** <description>
 - The generator must read from stdin and print to stdout
 
 Output format:
@@ -46,7 +48,7 @@ Output format:
 Be precise, deterministic, and thorough.
 """
     
-    def generate_generator(
+    async def generate_generator(
         self,
         problem: Problem,
     ) -> GeneratorResult:
@@ -58,11 +60,14 @@ Be precise, deterministic, and thorough.
                 {"role": "user", "content": problem.get_description()}
             ]
             
-        output = self.client.chat(self.messages, temperature=0.0)
+        output = await self.client.chat(self.messages, temperature=0.0)
+        print(output)
         self.messages.append({"role": "assistant", "content": output})
         code = extract_code(output)
         commands = extract_configuration(output)
+        logger.info("Running generator with commands")
         tests = test_code(code, commands)
+        logger.info("Finished running generator with commands")
         return GeneratorResult(
             response = output,
             code = code,
@@ -124,7 +129,7 @@ Since Tanya eats candy instantly, the required time is four seconds.
         sample_outputs=["4", "-1"]
     )
     
-    response = agent.generate_generator(problem)
+    response = asyncio.run(agent.generate_generator(problem))
     print(response.response)
     print(response.code)
     print(response.commands)

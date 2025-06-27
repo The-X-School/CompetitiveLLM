@@ -2,3 +2,4 @@ taco_train
 taco_valid
 .env
 __pycache__
+data

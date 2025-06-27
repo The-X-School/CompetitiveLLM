@@ -1,11 +1,13 @@
 import re
 import time
 import builtins
+import json
 import io
 import sys
 import multiprocessing
 import resource
 import ast
+from pathlib import Path
 from typing import List
 from data_structures import CodeResult
 
@@ -120,14 +122,15 @@ def run_code(
         memory=get_peak_memory_mb(),
         verdict="OK"
     )
-        
     output_queue.put(result, 0)
+    return
 
-def test_code(code: str, cases: List[str], time_limit: float = 256) -> List[CodeResult]:
+def test_code(code: str, cases: List[str], time_limit: float = 2) -> List[CodeResult]:
     outs = []
+    manager = multiprocessing.Manager()
 
     for i in range(len(cases)):
-        output_queue = multiprocessing.Queue()
+        output_queue = manager.Queue()
         p = multiprocessing.Process(target=run_code, args=(code, cases[i], output_queue))
         p.start()
         p.join(timeout=time_limit)
@@ -165,3 +168,15 @@ print(outs[:100])
     outs = test_code(code, cases)
     for out in outs:
         print(out)
+        
+def load_json(file_path: str, default: dict = {}):
+    try:
+        with open(file_path, "r") as f:
+            return json.load(f)
+    except:
+        return default
+    
+def save_json(file_path: str, data: dict):
+    path = Path(file_path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    json.dump(data, open(file_path, "w"), indent=2)

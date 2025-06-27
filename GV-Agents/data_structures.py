@@ -12,6 +12,9 @@ class Config:
     generator: ClientConfig
     validator: ClientConfig
     
+    good_cases_path: str = 'data/good_cases.json'
+    bad_cases_path: str = 'data/bad_cases.json'
+    
     max_retries: int = 3
     num_inputs_per_problem: int = 15
 
