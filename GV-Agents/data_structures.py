@@ -17,6 +17,8 @@ class Config:
     
     max_retries: int = 3
     num_inputs_per_problem: int = 15
+    
+    processes: int = 8
 
 @dataclass
 class Problem:

@@ -3,6 +3,7 @@ import json
 import tqdm
 import dataclasses
 import asyncio
+import multiprocessing
 from utils import load_json, save_json
 from data_structures import *
 from llm_client import LLMClient
@@ -74,23 +75,28 @@ class GVSystem:
                 good_cases[problem.id].append(generator_result.inputs[i])
                 inputs.append(generator_result.inputs[i])
             else:
-                bad_cases[problem.id].append("inputs": generator_result.inputs[i])
+                bad_cases[problem.id].append(generator_result.inputs[i])
         
         save_json(self.good_cases_path, good_cases)
         save_json(self.bad_cases_path, bad_cases)
             
         return inputs
 
-def run_multi_gv(problems: List[Problem], config: Config):
-    """Run the GV system on multiple problems"""
-    generator = LLMClient(config.generator)
-    validator = LLMClient(config.validator)
+class GVRunner:
+    """Runner class for the GV system"""
+    def __init__(self, config: Config):
+        self.config = config
+        self.generator = LLMClient(config.generator)
+        self.validator = LLMClient(config.validator)
     
-    for problem in tqdm.tqdm(problems):
-        print(problem.statement)
+    def run_single(self, problem: Problem):
         logging.info(f"Generating test cases for problem {problem.name} with ID {problem.id}")
-        system = GVSystem(generator, validator, config)
-        asyncio.run(system.generate_test_cases(problem))
+        self.system = GVSystem(self.generator, self.validator, self.config)
+        asyncio.run(self.system.generate_test_cases(problem))
+        
+    def run_multi(self, problems: List[Problem]):
+        with multiprocessing.Pool(config.processes) as pool:
+            pool.map(self.run_single, problems)
 
 if __name__ == '__main__':
     config = Config(

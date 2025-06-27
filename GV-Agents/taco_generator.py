@@ -1,6 +1,6 @@
 from data_structures import *
 from datasets import load_dataset
-from gv_system import GVSystem, run_multi_gv
+from gv_system import GVSystem, GVRunner
 from llm_client import LLMClient
 from utils import extract_code, extract_configuration, test_code
 from typing import Optional
@@ -42,6 +42,5 @@ if __name__ == '__main__':
     for i in trange(len(dataset), desc="Mapping TACO dataset"):
         dataset_mapped.append(map_taco(dataset[i], i))
     
-    system = GVSystem(LLMClient(config.generator), LLMClient(config.validator), config)
-    asyncio.run(system.generate_test_cases(dataset_mapped[3]))
-    #run_multi_gv(dataset_mapped[:100], config)
+    system = GVRunner(config)
+    system.run_multi(dataset_mapped[:100])
