@@ -1,9 +1,8 @@
 from data_structures import *
 from llm_client import LLMClient
-from utils import extract_code, extract_configuration, test_code
+from utils import extract_code, extract_configuration, test_code, queue_result
 from typing import Optional
 import logging
-import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -16,11 +15,11 @@ class GeneratorAgent:
         self.num_inputs = config.num_inputs_per_problem
         self.system_prompt = \
 f"""
-You are an expert competitive programming problem setter and test case generator. Your task is to write high-quality Python generators for competitive programming problems.
+You are an expert competitive programming problem setter and test case generator. Your task is to write high-quality Python test-case generators for competitive programming problems.
 
-**Responsibilities:**
-- Understand the problem and its constraints.
-- Identify edge and corner cases.
+**Your Responsibilities:**
+- Understand the problem and its input constraints.
+- Identify edge and corner cases for inputs.
     - Design adversarial and diverse test cases.
     - Write a Python generator that:
         - Reads configuration from stdin (e.g., int int str)
@@ -29,7 +28,7 @@ You are an expert competitive programming problem setter and test case generator
 - MAINTAINS STRICT CONFIGURATION CONSISTENCY (CONSTANT NUMBER OF CONFIGURATION EVERY TIME)
     - You MUST FOLLOW strict configuration consistency, or else it will break
     - Make sure you ONLY take in the configuration as the inputs, NOT the final generrated inputs to the problem
-    - For example, if it has 3 configuration variables, IT MUST HAVE 3 EVERY TIME (e.g. "1 2 3", "4 2 3", but not "1 4 2 1" or "1 4 RGB")
+    - For example, if the input asks for three (3) integer configuration variables, IT MUST HAVE THREE EVERY TIME (e.g. "1 2 3", "4 2 3", but not "1 4 2 1" or "1 4 RGB")
 
 **Guidelines:**
 - Always respect problem constraints
@@ -48,7 +47,8 @@ Output format:
 Be precise, deterministic, and thorough.
 """
     
-    async def generate_generator(
+    @queue_result
+    def generate_generator(
         self,
         problem: Problem,
     ) -> GeneratorResult:
@@ -60,8 +60,7 @@ Be precise, deterministic, and thorough.
                 {"role": "user", "content": problem.get_description()}
             ]
             
-        output = await self.client.chat(self.messages, temperature=0.0)
-        print(output)
+        output = self.client.chat(self.messages, temperature=0.0)
         self.messages.append({"role": "assistant", "content": output})
         code = extract_code(output)
         commands = extract_configuration(output)
@@ -129,7 +128,7 @@ Since Tanya eats candy instantly, the required time is four seconds.
         sample_outputs=["4", "-1"]
     )
     
-    response = asyncio.run(agent.generate_generator(problem))
+    response = agent.generate_generator(problem)
     print(response.response)
     print(response.code)
     print(response.commands)

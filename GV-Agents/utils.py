@@ -7,6 +7,7 @@ import sys
 import multiprocessing
 import resource
 import ast
+from functools import wraps
 from pathlib import Path
 from typing import List
 from data_structures import CodeResult
@@ -180,3 +181,11 @@ def save_json(file_path: str, data: dict):
     path = Path(file_path)
     path.parent.mkdir(parents=True, exist_ok=True)
     json.dump(data, open(file_path, "w"), indent=2)
+    
+def queue_result(func):
+    @wraps(func)
+    def wrapper(*args, queue=None, **kwargs):
+        result = func(*args, **kwargs)
+        if queue is not None:
+            queue.put(result)
+    return wrapper

@@ -6,7 +6,8 @@ from utils import extract_code, extract_configuration, test_code
 from typing import Optional
 import logging
 import json
-import asyncio
+import pickle
+import os
 from tqdm import trange
 import sys
 
@@ -20,7 +21,7 @@ logging.basicConfig(
 def map_taco(problem: dict, idx: int) -> Problem:
     in_out = json.loads(problem["input_output"])
     return Problem(
-        id = idx + 1,
+        id = str(idx + 1),
         name = problem["name"],
         statement = problem["question"],
         sample_inputs = in_out["inputs"],
@@ -37,10 +38,15 @@ if __name__ == '__main__':
     
     dataset_mapped = []
     dataset = load_dataset("BAAI/TACO", split="train")
-    logging.info("Finished logging TACO dataset")
+    logging.info("Finished loading TACO dataset")
     
-    for i in trange(len(dataset), desc="Mapping TACO dataset"):
-        dataset_mapped.append(map_taco(dataset[i], i))
+    if os.path.exists("data.pkl"):
+        with open("data.pkl", "rb") as f:
+            dataset_mapped = pickle.load(f)
+    else:
+        for i in trange(len(dataset), desc="Mapping TACO dataset"):
+            dataset_mapped.append(map_taco(dataset[i], i))
+        with open("data.pkl", "wb") as f:
+            pickle.dump(dataset_mapped, f)
     
-    system = GVRunner(config)
-    system.run_multi(dataset_mapped[:100])
+    GVRunner.run_multi(dataset_mapped[:100], config)

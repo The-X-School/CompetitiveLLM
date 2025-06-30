@@ -3,3 +3,4 @@ taco_valid
 .env
 __pycache__
 data
+*.pkl

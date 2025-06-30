@@ -1,7 +1,6 @@
 from data_structures import *
 from llm_client import LLMClient
-from utils import extract_code, test_code
-import asyncio
+from utils import extract_code, test_code, queue_result
 import logging
 
 logger = logging.getLogger(__name__)
@@ -20,7 +19,7 @@ You are an expert competitive programming judge and validator. Your task is to w
     - Checks every constraint
     - Raises exceptions with clear error messages (include line numbers when possible)
 - Properly handle edge cases and boundary conditions.
-- Make the validator strict and robust — it must catch any invalid input.
+- Make the validator strict and robust - it must catch any invalid input.
 
 **Guidelines:**
 - Validate data ranges, input format, and structural rules
@@ -33,9 +32,10 @@ You are an expert competitive programming judge and validator. Your task is to w
 2. Full Python validator code
 3. A brief explanation of the validation logic
 
-Be precise and exhaustive — missing a single constraint could break the problem."""
+Be precise and exhaustive - missing a single constraint could break the problem."""
     
-    async def generate_validator(self, problem: Problem) -> ValidatorResult:
+    @queue_result
+    def generate_validator(self, problem: Problem) -> ValidatorResult:
         logger.info(f"Generating validator...")
         if self.messages == []:
             self.messages = [
@@ -43,8 +43,8 @@ Be precise and exhaustive — missing a single constraint could break the proble
                 {"role": "user", "content": problem.get_description()}
             ]
         
-        output = await self.client.chat(self.messages, temperature=0.0)
-        print(output)
+        output = self.client.chat(self.messages, temperature=0.0)
+        #print(output)
         self.messages.append({"role": "assistant", "content": output})
         self.code = extract_code(output)
         return ValidatorResult(output, self.code)
@@ -125,6 +125,6 @@ Since Tanya eats candy instantly, the required time is four seconds.
         sample_outputs=["4", "-1"]
     )
     
-    result = asyncio.run(agent.generate_validator(problem))
+    result = agent.generate_validator(problem)
     print("Validator Code:", result.code)
     print(agent.test_inputs(result.code, problem.sample_inputs))

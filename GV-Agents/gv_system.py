@@ -2,14 +2,15 @@ import logging
 import json
 import tqdm
 import dataclasses
-import asyncio
 import multiprocessing
+from concurrent.futures import ProcessPoolExecutor
 from utils import load_json, save_json
 from data_structures import *
 from llm_client import LLMClient
 from generator_agent import GeneratorAgent
 from validator_agent import ValidatorAgent
 
+multiprocessing.set_start_method('fork')
 logger = logging.getLogger(__name__)
 
 class GVSystem:
@@ -21,24 +22,38 @@ class GVSystem:
         self.good_cases_path = config.good_cases_path
         self.bad_cases_path = config.bad_cases_path
     
-    async def generate_test_cases(self, problem: Problem) -> List[str]:
-        """Generate test cases for a given problem"""
+    def generate_test_cases(self, problem: Problem, retries: int = 0) -> List[str]:
+        """Parallelized of generation  test cases for a given problem"""
         test_cases = []
-        generator_result = []
-        if (
-            self.generator_agent.client.backend == "openrouter" and
-            self.validator_agent.client.backend == "openrouter"
-        ):
-            validator_result, generator_result = await asyncio.gather(
-                self.validator_agent.generate_validator(problem),
-                self.generator_agent.generate_generator(problem)
-            )
-        else:
-            validator_result = await self.validator_agent.generate_validator(problem)
-            generator_result = await self.generator_agent.generate_generator(problem)
-            
-        print("Validator:", validator_result.code)
-        print("\nGenerator:", generator_result.inputs)
+        
+        q1 = multiprocessing.Queue()
+        q2 = multiprocessing.Queue()
+        p1 = multiprocessing.Process(
+            target=self.validator_agent.generate_validator,
+            args=(problem,),
+            kwargs={"queue": q1}
+        )
+        p2 = multiprocessing.Process(
+            target=self.generator_agent.generate_generator,
+            args=(problem,),
+            kwargs={"queue": q2}
+        )
+        p1.start()
+        p2.start()
+        p1.join()
+        p2.join()
+        validator_result = q1.get()
+        generator_result = q2.get()
+        
+        if not validator_result or not generator_result:
+            if retries < self.max_retries:
+                return self.generate_test_cases(problem, retries + 1)
+            else:
+                print(f"Skipping problem with id {problem.id} after {self.max_retries} retries.")
+                return []
+
+        #print("Validator:", validator_result.code)
+        #print("\nGenerator:", generator_result.inputs)
         #print("\nGenerator:", generator_result.response)
         
         for i in range(self.max_retries):
@@ -52,15 +67,17 @@ class GVSystem:
                     generator_result.commands, test_cases
                 )
                 
-            print("\nValidator:", feedback)
+            #print("\nValidator:", feedback)
             if feedback == "All test cases passed!": break
             self.generator_agent.messages.append({"role": "user", "content": feedback})
             
-            generator_result = await self.generator_agent.generate_generator(problem)
-            print("\nGenerator:", generator_result.inputs)
+            generator_result = self.generator_agent.generate_generator(problem)
+            #print("\nGenerator:", generator_result.inputs)
             #print("\nGenerator:", generator_result.response)
         
         inputs = []
+        good_cases = {}
+        bad_cases = {}
         good_cases = load_json(self.good_cases_path, {})
         bad_cases = load_json(self.bad_cases_path, {})
         
@@ -70,6 +87,8 @@ class GVSystem:
         if problem.id not in bad_cases:
             bad_cases[problem.id] = []
         
+        print("Good cases keys:", good_cases.keys())
+        print("Bad cases keys:", bad_cases.keys())
         for i in range(len(test_cases)):
             if test_cases[i].verdict == "OK":
                 good_cases[problem.id].append(generator_result.inputs[i])
@@ -79,24 +98,31 @@ class GVSystem:
         
         save_json(self.good_cases_path, good_cases)
         save_json(self.bad_cases_path, bad_cases)
-            
+        
+        #logging.info(f"Finished generating test cases for problem {problem.name} with ID {problem.id}")
         return inputs
 
 class GVRunner:
-    """Runner class for the GV system"""
-    def __init__(self, config: Config):
-        self.config = config
-        self.generator = LLMClient(config.generator)
-        self.validator = LLMClient(config.validator)
-    
-    def run_single(self, problem: Problem):
+    @staticmethod
+    def _run_single(problem: Problem, config: Config):
+        """Standalone function that can be pickled for multiprocessing"""
         logging.info(f"Generating test cases for problem {problem.name} with ID {problem.id}")
-        self.system = GVSystem(self.generator, self.validator, self.config)
-        asyncio.run(self.system.generate_test_cases(problem))
-        
-    def run_multi(self, problems: List[Problem]):
-        with multiprocessing.Pool(config.processes) as pool:
-            pool.map(self.run_single, problems)
+
+        # Create fresh instances for each process
+        generator = LLMClient(config.generator)
+        validator = LLMClient(config.validator)
+        system = GVSystem(generator, validator, config)
+
+        return system.generate_test_cases(problem)
+
+    @staticmethod
+    def run_multi(problems: List[Problem], config: Config):
+        # Create tuples of (config, problem) for the standalone function
+        # config_problem_pairs = [(self.config, problem) for problem in problems]
+        # with multiprocessing.Pool(self.config.processes) as pool:
+        #     return pool.map(_run_single_problem, config_problem_pairs)
+        with ProcessPoolExecutor(max_workers=config.processes) as executor:
+            return list(executor.map(GVRunner._run_single, problems, [config] * len(problems)))
 
 if __name__ == '__main__':
     config = Config(
@@ -109,6 +135,7 @@ if __name__ == '__main__':
     validator = LLMClient(config.validator)
     system = GVSystem(generator, validator, config)
     
+    # statement pulled from codeforces "Tanya and Colored Candies" (https://codeforces.com/problemset/problem/1057/C)
     statement = \
 """
 There are $n$ candy boxes in front of Tanya. The boxes are arranged in a row from left to right, numbered from $1$ to $n$. The $i$-th box contains $r_i$ candies, candies have the color $c_i$ (the color can take one of three values - red, green, or blue). All candies inside a single box have the same color (and it is equal to $c_i$).
@@ -147,6 +174,7 @@ The sequence of actions of Tanya for the first example:
 Since Tanya eats candy instantly, the required time is four seconds.
 """
     
+    # example problem pulled from codeforces, we are actually using BAAI/TACO
     problem = Problem(
         id="1",
         name="Tanya and Colored Candies",
@@ -155,4 +183,4 @@ Since Tanya eats candy instantly, the required time is four seconds.
         sample_outputs=["4", "-1"]
     )
     
-    asyncio.run(system.generate_test_cases(problem))
+    system.generate_test_cases(problem)
