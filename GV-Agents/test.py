@@ -13,7 +13,7 @@ config = int(sys.stdin.readline())
 generate_test_case(config)
 """
 
-from utils import test_code
+from utils import test_code_multi_cases
 
 if __name__ == "__main__":
-    print(test_code(code, ["2", "27"]))
+    print(test_code_multi_cases(code, ["2", "27"]))

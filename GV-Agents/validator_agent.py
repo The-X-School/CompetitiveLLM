@@ -1,6 +1,6 @@
 from data_structures import *
 from llm_client import LLMClient
-from utils import extract_code, test_code, queue_result
+from utils import extract_code, test_code_multi_cases, queue_result
 import logging
 
 logger = logging.getLogger(__name__)
@@ -52,7 +52,7 @@ Be precise and exhaustive - missing a single constraint could break the problem.
     
     def test_inputs(self, code: str, test_cases: List[str]) -> List[CodeResult]:
         logger.info("Validating inputs generator by the generator agent")
-        return test_code(code, test_cases)
+        return test_code_multi_cases(code, test_cases)
     
     def give_feedback(self, commands: List[str], test_results: List[CodeResult]) -> str:
         feedback = ""

@@ -1,6 +1,6 @@
 from data_structures import *
 from llm_client import LLMClient
-from utils import extract_code, extract_configuration, test_code, queue_result
+from utils import extract_code, extract_configuration, test_code_multi_cases, queue_result
 from typing import Optional
 import logging
 
@@ -15,7 +15,7 @@ class GeneratorAgent:
         self.num_inputs = config.num_inputs_per_problem
         self.system_prompt = \
 f"""
-You are an expert competitive programming problem setter and test case generator. Your task is to write high-quality test-case generators in Python for competitive programming problems.
+You are an expert Python coder and an expert in writing test cases for competitive programming problems. Your task is to write high-quality test-case generators in Python for competitive programming problems.
 
 **Your Responsibilities:**
 - Understand the problem and its input constraints.
@@ -47,10 +47,9 @@ Output format:
 Be precise, deterministic, and thorough.
 """
     
-    @queue_result
     def generate_generator(
         self,
-        problem: Problem,
+        problem: Problem
     ) -> GeneratorResult:
         logger.info(f"Generating test generator for problem: {problem.name}")
         
@@ -65,7 +64,7 @@ Be precise, deterministic, and thorough.
         code = extract_code(output)
         commands = extract_configuration(output)
         logger.info("Running generator with commands")
-        tests = test_code(code, commands)
+        tests = test_code_multi_cases(code, commands)
         logger.info("Finished running generator with commands")
         return GeneratorResult(
             response = output,

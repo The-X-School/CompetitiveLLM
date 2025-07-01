@@ -4,7 +4,7 @@ import tqdm
 import dataclasses
 import multiprocessing
 from concurrent.futures import ProcessPoolExecutor
-from utils import load_json, save_json
+from utils import load_json, save_json, queue_result
 from data_structures import *
 from llm_client import LLMClient
 from generator_agent import GeneratorAgent
@@ -19,8 +19,8 @@ class GVSystem:
         self.generator_agent = GeneratorAgent(generator, config)
         self.validator_agent = ValidatorAgent(validator)
         self.max_retries = config.max_retries
-        self.good_cases_path = config.good_cases_path
-        self.bad_cases_path = config.bad_cases_path
+        self.postive_cases_path = config.postive_cases_path
+        self.negative_cases_path = config.negative_cases_path
     
     def generate_test_cases(self, problem: Problem, retries: int = 0) -> List[str]:
         """Parallelized of generation  test cases for a given problem"""
@@ -29,12 +29,12 @@ class GVSystem:
         q1 = multiprocessing.Queue()
         q2 = multiprocessing.Queue()
         p1 = multiprocessing.Process(
-            target=self.validator_agent.generate_validator,
+            target=queue_result(self.validator_agent.generate_validator),
             args=(problem,),
             kwargs={"queue": q1}
         )
         p2 = multiprocessing.Process(
-            target=self.generator_agent.generate_generator,
+            target=queue_result(self.generator_agent.generate_generator),
             args=(problem,),
             kwargs={"queue": q2}
         )
@@ -76,28 +76,28 @@ class GVSystem:
             #print("\nGenerator:", generator_result.response)
         
         inputs = []
-        good_cases = {}
-        bad_cases = {}
-        good_cases = load_json(self.good_cases_path, {})
-        bad_cases = load_json(self.bad_cases_path, {})
+        postive_cases = {}
+        negative_cases = {}
+        postive_cases = load_json(self.postive_cases_path, {})
+        negative_cases = load_json(self.negative_cases_path, {})
         
-        if problem.id not in good_cases:
-            good_cases[problem.id] = []
+        if problem.id not in postive_cases:
+            postive_cases[problem.id] = []
         
-        if problem.id not in bad_cases:
-            bad_cases[problem.id] = []
+        if problem.id not in negative_cases:
+            negative_cases[problem.id] = []
         
-        print("Good cases keys:", good_cases.keys())
-        print("Bad cases keys:", bad_cases.keys())
+        print("Good cases keys:", postive_cases.keys())
+        print("Bad cases keys:", negative_cases.keys())
         for i in range(len(test_cases)):
             if test_cases[i].verdict == "OK":
-                good_cases[problem.id].append(generator_result.inputs[i])
+                postive_cases[problem.id].append(generator_result.inputs[i])
                 inputs.append(generator_result.inputs[i])
             else:
-                bad_cases[problem.id].append(generator_result.inputs[i])
+                negative_cases[problem.id].append(generator_result.inputs[i])
         
-        save_json(self.good_cases_path, good_cases)
-        save_json(self.bad_cases_path, bad_cases)
+        save_json(self.postive_cases_path, postive_cases)
+        save_json(self.negative_cases_path, negative_cases)
         
         #logging.info(f"Finished generating test cases for problem {problem.name} with ID {problem.id}")
         return inputs
@@ -128,8 +128,6 @@ if __name__ == '__main__':
     config = Config(
         generator = ClientConfig("openrouter", "deepseek/deepseek-chat-v3-0324"),
         validator = ClientConfig("openrouter", "deepseek/deepseek-chat-v3-0324"),
-        good_cases_path = "data/good_cases.json",
-        bad_cases_path = "data/bad_cases.json",
         processes = 32
     )
     generator = LLMClient(config.generator)

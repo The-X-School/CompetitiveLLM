@@ -126,35 +126,50 @@ def run_code(
     output_queue.put(result, 0)
     return
 
-def test_code(code: str, cases: List[str], time_limit: float = 2) -> List[CodeResult]:
+def test_code_single_case(code: str, case: str, time_limit: float = 2, manager = None) -> CodeResult:
+    if not manager:
+        manager = multiprocessing.Manager()
+    
+    output_queue = manager.Queue()
+    p = multiprocessing.Process(target=run_code, args=(code, case, output_queue))
+    p.start()
+    p.join(timeout=time_limit)
+    if p.is_alive():
+        p.terminate()
+        return CodeResult(
+            time=time_limit,
+            memory=0,
+            verdict="Time Limit Error"
+        )
+    else:
+        try:
+            return output_queue.get(timeout=1)
+        except Exception as e:
+            return CodeResult(
+                time=0,
+                memory=0,
+                verdict="Runtime Error",
+                error=str(e)
+            )
+
+def test_code_multi_cases(code: str, cases: List[str], time_limit: float = 2, manager = None) -> List[CodeResult]:
     outs = []
-    manager = multiprocessing.Manager()
+    if not manager:
+        manager = multiprocessing.Manager()
 
     for i in range(len(cases)):
-        output_queue = manager.Queue()
-        p = multiprocessing.Process(target=run_code, args=(code, cases[i], output_queue))
-        p.start()
-        p.join(timeout=time_limit)
-        if p.is_alive():
-            p.terminate()
-            out = CodeResult(
-                time=time_limit,
-                memory=0,
-                verdict="Time Limit Error"
-            )
-        else:
-            try:
-                out = output_queue.get(timeout=1)
-            except Exception as e:
-                out = CodeResult(
-                    time=0,
-                    memory=0,
-                    verdict="Runtime Error",
-                    error=str(e)
-                )
+        outs.append(test_code_single_case(code, cases[i], time_limit, manager))
 
-        outs.append(out)
+    return outs
 
+def test_multi_code(codes: List[str], cases: List[str], time_limit: float = 2, manager = None) -> List[List[CodeResult]]:
+    outs = []
+    if not manager:
+        manager = multiprocessing.Manager()
+    
+    for i in range(len(codes)):
+        outs.append(test_code_multi_cases(codes[i], cases, time_limit, manager))
+    
     return outs
 
 if __name__ == '__main__':
@@ -166,7 +181,7 @@ for i in range(1000000):
 print(outs[:100])
 """
     cases = ["1 2 3", "4 5 6"]
-    outs = test_code(code, cases)
+    outs = test_code_multi_cases(code, cases)
     for out in outs:
         print(out)
         

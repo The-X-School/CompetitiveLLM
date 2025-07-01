@@ -12,8 +12,11 @@ class Config:
     generator: ClientConfig
     validator: ClientConfig
     
-    good_cases_path: str = 'data/good_cases.json'
-    bad_cases_path: str = 'data/bad_cases.json'
+    postive_cases_path: str = 'data/postive_cases.json'
+    negative_cases_path: str = 'data/negative_cases.json'
+    true_cases_path: str = 'data/true_cases.json'
+    false_cases_path: str = 'data/false_cases.json'
+    all_cases_path: str = 'data/all_cases.json'
     mapped_taco_path: str = 'data/mapped_taco.pkl'
     
     no_response_retires: int = 3
@@ -30,6 +33,7 @@ class Problem:
     statement: str
     sample_inputs: List[str]
     sample_outputs: List[str]
+    solutions: List[str]
     time_limit: float = 2.0  # seconds
     memory_limit: int = 256  # MB
 
