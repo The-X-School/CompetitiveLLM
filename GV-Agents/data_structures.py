@@ -14,6 +14,7 @@ class Config:
     
     good_cases_path: str = 'data/good_cases.json'
     bad_cases_path: str = 'data/bad_cases.json'
+    mapped_taco_path: str = 'data/mapped_taco.pkl'
     
     no_response_retires: int = 3
     max_retries: int = 3

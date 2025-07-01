@@ -129,7 +129,8 @@ if __name__ == '__main__':
         generator = ClientConfig("openrouter", "deepseek/deepseek-chat-v3-0324"),
         validator = ClientConfig("openrouter", "deepseek/deepseek-chat-v3-0324"),
         good_cases_path = "data/good_cases.json",
-        bad_cases_path = "data/bad_cases.json"
+        bad_cases_path = "data/bad_cases.json",
+        processes = 32
     )
     generator = LLMClient(config.generator)
     validator = LLMClient(config.validator)

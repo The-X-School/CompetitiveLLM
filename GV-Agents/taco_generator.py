@@ -33,20 +33,26 @@ if __name__ == '__main__':
         generator = ClientConfig("openrouter", "deepseek/deepseek-chat-v3-0324"),
         validator = ClientConfig("openrouter", "deepseek/deepseek-chat-v3-0324"),
         good_cases_path = "data/good_cases.json",
-        bad_cases_path = "data/bad_cases.json"
+        bad_cases_path = "data/bad_cases.json",
+        processes = 32
     )
     
     dataset_mapped = []
     dataset = load_dataset("BAAI/TACO", split="train")
     logging.info("Finished loading TACO dataset")
     
-    if os.path.exists("data.pkl"):
-        with open("data.pkl", "rb") as f:
-            dataset_mapped = pickle.load(f)
-    else:
+    def map_taco_full():
+        dataset_mapped = []
         for i in trange(len(dataset), desc="Mapping TACO dataset"):
             dataset_mapped.append(map_taco(dataset[i], i))
-        with open("data.pkl", "wb") as f:
+        with open(config.mapped_taco_path, "wb") as f:
             pickle.dump(dataset_mapped, f)
+        return dataset_mapped
+    
+    if os.path.exists(config.mapped_taco_path):
+        with open(config.mapped_taco_path, "rb") as f:
+            try: dataset_mapped = pickle.load(f)
+            except: dataset_mapped = map_taco_full()
+    else: map_taco_full()
     
     GVRunner.run_multi(dataset_mapped[:100], config)

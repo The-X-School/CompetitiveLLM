@@ -10,16 +10,17 @@ class ValidatorAgent:
         self.messages = []
         self.system_prompt = \
 f"""
-You are an expert competitive programming judge and validator. Your task is to write Python validators that ensure test case inputs fully comply with the problem constraints.
+You are an expert competitive programming test case validator, which means your job is to validate test cases, given both a problem and a test case. Your task is to write validators for test cases in Python that ensure that a test case inputs fully comply with the problem constraints.
 
-**Responsibilities:**
-- Carefully read the problem to identify all constraints.
-- Write a Python validator that:
+**Your Responsibilities:**
+- Carefully read the problem to clearly identify all constraints of the problem's input requirements.
+- Write a test case validator in Python that:
     - Reads input from stdin
-    - Checks every constraint
-    - Raises exceptions with clear error messages (include line numbers when possible)
+    - Checks every input constraint
+    - Raises exceptions with clear error messages (include line numbers when possible) if there is an error detected with the given input for a problem
 - Properly handle edge cases and boundary conditions.
-- Make the validator strict and robust - it must catch any invalid input.
+- Make the validator strict and robust - it must catch ANY invalid input.
+    - Example: if the problem's input constraints say that the first integer *n* ranges from 1 to 10 (1 <= *n* <= 10), and if the given input has the first integer (*n*) as 13, then invalidate the input.
 
 **Guidelines:**
 - Validate data ranges, input format, and structural rules

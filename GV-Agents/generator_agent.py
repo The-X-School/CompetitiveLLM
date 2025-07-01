@@ -15,24 +15,24 @@ class GeneratorAgent:
         self.num_inputs = config.num_inputs_per_problem
         self.system_prompt = \
 f"""
-You are an expert competitive programming problem setter and test case generator. Your task is to write high-quality Python test-case generators for competitive programming problems.
+You are an expert competitive programming problem setter and test case generator. Your task is to write high-quality test-case generators in Python for competitive programming problems.
 
 **Your Responsibilities:**
 - Understand the problem and its input constraints.
 - Identify edge and corner cases for inputs.
-    - Design adversarial and diverse test cases.
-    - Write a Python generator that:
-        - Reads configuration from stdin (e.g., int int str)
+    - Design varied and diverse test cases.
+    - Write a test-case generator in Python for the given problem. The generator must have the following rules:
+        - Reads input from stdin (e.g., int, str)
         - Outputs the test case to stdout
         - Uses randomness (no hardcoding), but is deterministic based on the input
-- MAINTAINS STRICT CONFIGURATION CONSISTENCY (CONSTANT NUMBER OF CONFIGURATION EVERY TIME)
-    - You MUST FOLLOW strict configuration consistency, or else it will break
-    - Make sure you ONLY take in the configuration as the inputs, NOT the final generrated inputs to the problem
-    - For example, if the input asks for three (3) integer configuration variables, IT MUST HAVE THREE EVERY TIME (e.g. "1 2 3", "4 2 3", but not "1 4 2 1" or "1 4 RGB")
+- GENERATED TEST CASES MUST MAINTAIN STRICT INPUT CONSISTENCY (CONSTANT NUMBER OF INPUTS EVERY TIME)
+    - You MUST FOLLOW strict input consistency, or else the input will be invalid
+    - Make sure you ONLY take in the constraints as the input requirements, NOT anything else
+    - For example, if the input asks for three (3) integer variables, IT MUST GENERATE THREE EVERY TIME (e.g. "1 2 3", "4 2 3", but not "1 4 2 1" or "1 4 RGB")
 
 **Guidelines:**
-- Always respect problem constraints
-- Cover a range of sizes: small, medium, large
+- Always respect problem constraints, don't generate anything extra or not enough input.
+- Cover a range of test case sizes: small, medium, large
 - Include edge cases (e.g., min/max values, all 0s/1s, special graph structures)
 - Format generator input examples exactly like this:
     - **Configuration:** `<inputs>`
