@@ -60,7 +60,7 @@ Be precise, deterministic, and thorough.
                 {"role": "system", "content": self.system_prompt},
                 {"role": "user", "content": problem.get_description()}
             ]
-            
+        
         output = await self.client.async_chat(self.messages[problem.id], temperature=0.0)
         self.messages[problem.id].append({"role": "assistant", "content": output})
         code = extract_code(output)

@@ -212,7 +212,7 @@ def test_multi_code(
         all_results = list(executor.map(_run_code_wrapper, all_args))
 
     # Group results back by code
-    results_by_code = [] * len(codes)
+    results_by_code = [[] for _ in range(len(codes))]
     for i, result in enumerate(all_results):
         results_by_code[code_indices[i]].append(result)
 

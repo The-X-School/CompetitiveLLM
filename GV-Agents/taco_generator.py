@@ -49,7 +49,9 @@ def get_mapped_taco(config: Config, split="train") -> List[Problem]:
             except: return map_full()
     else: return map_full()
 
-await run_all():
+async def async_generate():
+   await asyncio.gather(*(system.generate_test_cases(problem) for problem in dataset[:8]))
+
 if __name__ == '__main__':
     config = Config(
         generator = ClientConfig("async_openrouter", "deepseek/deepseek-chat-v3-0324"),
@@ -63,5 +65,4 @@ if __name__ == '__main__':
     logging.info("Finished loading TACO dataset")
     
     system = GVSystem(config)
-    asyncio.run(system.generate_test_cases(dataset[0]))
-    #asyncio.run(asyncio.gather(*(system.generate_test_cases(problem) for problem in dataset[:8])))
+    asyncio.run(async_generate())
