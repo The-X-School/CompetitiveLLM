@@ -108,13 +108,13 @@ def generate_all_inputs(config: Config, use_async = True, limit_problems: int = 
     save_json(config.all_cases_path, all_inputs)
     return all_inputs
 
-problem_limit = 4
-
 if __name__ == '__main__':
+    problem_limit = 4
+    thread_limit = 4
     config = Config(
         generator = ClientConfig("async_openrouter", "deepseek/deepseek-chat-v3-0324"),
         validator = ClientConfig("async_openrouter", "deepseek/deepseek-chat-v3-0324"),
-        processes = problem_limit
+        processes = thread_limit
     )
     # evaluate truths
     generate_all_inputs(config, limit_problems=problem_limit)

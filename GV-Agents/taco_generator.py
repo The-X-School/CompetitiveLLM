@@ -47,7 +47,10 @@ def get_mapped_taco(config: Config, split="train") -> List[Problem]:
         with open(config.mapped_taco_path, "rb") as f:
             try: return pickle.load(f)
             except: return map_full()
-    else: return map_full()
+    else:
+        logging.info(f"File path {config.mapped_taco_path} created")
+        os.makedirs(os.path.dirname(config.mapped_taco_path), exist_ok=True)
+        return map_full()
 
 async def async_generate():
    await asyncio.gather(*(system.generate_test_cases(problem) for problem in dataset[:8]))

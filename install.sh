@@ -8,3 +8,5 @@ pip install --upgrade pandas
 pip install numpy==1.26.4
 pip install gpustat
 pip install dotenv
+pip install multiprocess
+pip install openai
