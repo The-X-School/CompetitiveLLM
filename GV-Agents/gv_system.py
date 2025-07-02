@@ -3,6 +3,7 @@ import json
 import tqdm
 import dataclasses
 import multiprocess
+import asyncio
 from concurrent.futures import ProcessPoolExecutor
 from utils import load_json, save_json, queue_result
 from data_structures import *
@@ -22,28 +23,31 @@ class GVSystem:
         self.postive_cases_path = config.postive_cases_path
         self.negative_cases_path = config.negative_cases_path
     
-    def generate_test_cases(self, problem: Problem, retries: int = 0) -> List[str]:
+    async def generate_test_cases(self, problem: Problem, retries: int = 0) -> List[str]:
         """Parallelized of generation  test cases for a given problem"""
         test_cases = []
-        
-        q1 = multiprocess.Queue()
-        q2 = multiprocess.Queue()
-        p1 = multiprocess.Process(
-            target=queue_result(self.validator_agent.generate_validator),
-            args=(problem,),
-            kwargs={"queue": q1}
-        )
-        p2 = multiprocess.Process(
-            target=queue_result(self.generator_agent.generate_generator),
-            args=(problem,),
-            kwargs={"queue": q2}
-        )
-        p1.start()
-        p2.start()
-        p1.join()
-        p2.join()
-        validator_result = q1.get()
-        generator_result = q2.get()
+    
+        # q1 = multiprocess.Queue()
+        # q2 = multiprocess.Queue()
+        # p1 = multiprocess.Process(
+        #     target=self.validator_agent.generate_validator,
+        #     args=(problem,),
+        #     kwargs={"queue": q1}
+        # )
+        # p2 = multiprocess.Process(
+        #     target=self.generator_agent.generate_generator,
+        #     args=(problem,),
+        #     kwargs={"queue": q2}
+        # )
+        # p1.start()
+        # p2.start()
+        # p1.join()
+        # p2.join()
+        # validator_result = q1.get()
+        # generator_result = q2.get()
+        await asyncio.gather()
+        validator_result = await self.validator_agent.generate_validator(problem)
+        generator_result = await self.generator_agent.generate_generator(problem)
         
         if not validator_result or not generator_result:
             if retries < self.max_retries:

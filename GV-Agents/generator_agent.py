@@ -11,6 +11,8 @@ class GeneratorAgent:
     def __init__(self, client: LLMClient, config: Config):
         """Initializes the agent."""
         self.client = client
+        if client.backend != "async_openrouter":
+            raise ValueError("Validator agent requires async_openrouter backend")
         self.messages = []
         self.num_inputs = config.num_inputs_per_problem
         self.system_prompt = \
@@ -47,7 +49,7 @@ Output format:
 Be precise, deterministic, and thorough.
 """
     
-    def generate_generator(
+    async def generate_generator(
         self,
         problem: Problem
     ) -> GeneratorResult:
@@ -59,7 +61,7 @@ Be precise, deterministic, and thorough.
                 {"role": "user", "content": problem.get_description()}
             ]
             
-        output = self.client.chat(self.messages, temperature=0.0)
+        output = await self.client.async_chat(self.messages, temperature=0.0)
         self.messages.append({"role": "assistant", "content": output})
         code = extract_code(output)
         commands = extract_configuration(output)

@@ -7,6 +7,8 @@ logger = logging.getLogger(__name__)
 class ValidatorAgent:
     def __init__(self, client: LLMClient):
         self.client = client
+        if client.backend != "async_openrouter":
+            raise ValueError("Validator agent requires async_openrouter backend")
         self.messages = []
         self.system_prompt = \
 f"""
@@ -35,7 +37,7 @@ You are an expert competitive programming test case validator, which means your 
 
 Be precise and exhaustive - missing a single constraint could break the problem."""
     
-    def generate_validator(self, problem: Problem) -> ValidatorResult:
+    async def generate_validator(self, problem: Problem) -> ValidatorResult:
         logger.info(f"Generating validator...")
         if self.messages == []:
             self.messages = [
@@ -43,7 +45,7 @@ Be precise and exhaustive - missing a single constraint could break the problem.
                 {"role": "user", "content": problem.get_description()}
             ]
         
-        output = self.client.chat(self.messages, temperature=0.0)
+        output = await self.client.async_chat(self.messages, temperature=0.0)
         #print(output)
         self.messages.append({"role": "assistant", "content": output})
         self.code = extract_code(output)
