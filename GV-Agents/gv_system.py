@@ -2,7 +2,7 @@ import logging
 import json
 import tqdm
 import dataclasses
-import multiprocessing
+import multiprocess
 from concurrent.futures import ProcessPoolExecutor
 from utils import load_json, save_json, queue_result
 from data_structures import *
@@ -10,7 +10,7 @@ from llm_client import LLMClient
 from generator_agent import GeneratorAgent
 from validator_agent import ValidatorAgent
 
-multiprocessing.set_start_method('fork')
+multiprocess.set_start_method('fork')
 logger = logging.getLogger(__name__)
 
 class GVSystem:
@@ -26,14 +26,14 @@ class GVSystem:
         """Parallelized of generation  test cases for a given problem"""
         test_cases = []
         
-        q1 = multiprocessing.Queue()
-        q2 = multiprocessing.Queue()
-        p1 = multiprocessing.Process(
+        q1 = multiprocess.Queue()
+        q2 = multiprocess.Queue()
+        p1 = multiprocess.Process(
             target=queue_result(self.validator_agent.generate_validator),
             args=(problem,),
             kwargs={"queue": q1}
         )
-        p2 = multiprocessing.Process(
+        p2 = multiprocess.Process(
             target=queue_result(self.generator_agent.generate_generator),
             args=(problem,),
             kwargs={"queue": q2}
@@ -102,10 +102,26 @@ class GVSystem:
         #logging.info(f"Finished generating test cases for problem {problem.name} with ID {problem.id}")
         return inputs
 
+# class GVRunner:
+#     """Runner class for the GV system"""
+#     def __init__(self, config: Config):
+#         self.config = config
+#         self.generator = LLMClient(config.generator)
+#         self.validator = LLMClient(config.validator)
+    
+#     def run_single(self, problem: Problem):
+#         logging.info(f"Generating test cases for problem {problem.name} with ID {problem.id}")
+#         self.system = GVSystem(self.generator, self.validator, self.config)
+#         return self.system.generate_test_cases(problem)
+        
+#     def run_multi(self, problems: List[Problem]):
+#         with multiprocess.Pool(self.config.processes) as pool:
+#             return pool.map(self.run_single, problems)
+
 class GVRunner:
     @staticmethod
     def _run_single(problem: Problem, config: Config):
-        """Standalone function that can be pickled for multiprocessing"""
+        """Standalone function that can be pickled for multiprocess"""
         logging.info(f"Generating test cases for problem {problem.name} with ID {problem.id}")
 
         # Create fresh instances for each process
@@ -119,7 +135,7 @@ class GVRunner:
     def run_multi(problems: List[Problem], config: Config):
         # Create tuples of (config, problem) for the standalone function
         # config_problem_pairs = [(self.config, problem) for problem in problems]
-        # with multiprocessing.Pool(self.config.processes) as pool:
+        # with multiprocess.Pool(self.config.processes) as pool:
         #     return pool.map(_run_single_problem, config_problem_pairs)
         with ProcessPoolExecutor(max_workers=config.processes) as executor:
             return list(executor.map(GVRunner._run_single, problems, [config] * len(problems)))

@@ -59,4 +59,4 @@ if __name__ == '__main__':
     dataset = get_mapped_taco(config)
     logging.info("Finished loading TACO dataset")
     
-    #GVRunner.run_multi(dataset[:100], config)
+    GVRunner.run_multi(dataset[:100], config)

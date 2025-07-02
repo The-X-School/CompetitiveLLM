@@ -35,7 +35,6 @@ You are an expert competitive programming test case validator, which means your 
 
 Be precise and exhaustive - missing a single constraint could break the problem."""
     
-    @queue_result
     def generate_validator(self, problem: Problem) -> ValidatorResult:
         logger.info(f"Generating validator...")
         if self.messages == []:
