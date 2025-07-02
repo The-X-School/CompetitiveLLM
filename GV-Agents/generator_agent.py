@@ -13,7 +13,7 @@ class GeneratorAgent:
         self.client = client
         if client.backend != "async_openrouter":
             raise ValueError("Validator agent requires async_openrouter backend")
-        self.messages = []
+        self.messages = {}
         self.num_inputs = config.num_inputs_per_problem
         self.system_prompt = \
 f"""
@@ -38,7 +38,7 @@ You are an expert Python coder and an expert in writing test cases for competiti
 - Include edge cases (e.g., min/max values, all 0s/1s, special graph structures)
 - Format generator input examples exactly like this:
     - **Configuration:** `<inputs>`
-    - **Description:** <description>
+    - **Description:** `<description>`
 - The generator must read from stdin and print to stdout
 
 Output format:
@@ -55,14 +55,14 @@ Be precise, deterministic, and thorough.
     ) -> GeneratorResult:
         logger.info(f"Generating test generator for problem: {problem.name}")
         
-        if self.messages == []:
-            self.messages = [
+        if problem.id not in self.messages:
+            self.messages[problem.id] = [
                 {"role": "system", "content": self.system_prompt},
                 {"role": "user", "content": problem.get_description()}
             ]
             
-        output = await self.client.async_chat(self.messages, temperature=0.0)
-        self.messages.append({"role": "assistant", "content": output})
+        output = await self.client.async_chat(self.messages[problem.id], temperature=0.0)
+        self.messages[problem.id].append({"role": "assistant", "content": output})
         code = extract_code(output)
         commands = extract_configuration(output)
         logger.info("Running generator with commands")

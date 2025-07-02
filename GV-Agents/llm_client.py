@@ -28,6 +28,7 @@ class LLMClient:
         elif self.backend == "async_openrouter":
             from openai import AsyncOpenAI
 
+            print(os.getenv("OPENROUTER_API_KEY"))
             self.client = AsyncOpenAI(
                 api_key=os.getenv("OPENROUTER_API_KEY"),
                 base_url="https://openrouter.ai/api/v1",

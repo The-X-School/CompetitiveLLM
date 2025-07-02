@@ -1,6 +1,7 @@
+
 from data_structures import *
 from datasets import load_dataset
-from gv_system import GVSystem, GVRunner
+from gv_system import GVSystem
 from llm_client import LLMClient
 from utils import extract_code, extract_configuration, test_code_multi_cases
 from typing import Optional, List
@@ -8,6 +9,7 @@ import logging
 import json
 import pickle
 import os
+import asyncio
 from tqdm import trange
 import sys
 
@@ -47,10 +49,11 @@ def get_mapped_taco(config: Config, split="train") -> List[Problem]:
             except: return map_full()
     else: return map_full()
 
+await run_all():
 if __name__ == '__main__':
     config = Config(
-        generator = ClientConfig("openrouter", "deepseek/deepseek-chat-v3-0324"),
-        validator = ClientConfig("openrouter", "deepseek/deepseek-chat-v3-0324"),
+        generator = ClientConfig("async_openrouter", "deepseek/deepseek-chat-v3-0324"),
+        validator = ClientConfig("async_openrouter", "deepseek/deepseek-chat-v3-0324"),
         postive_cases_path = "data/postive_cases.json",
         negative_cases_path = "data/negative_cases.json",
         processes = 32
@@ -59,4 +62,6 @@ if __name__ == '__main__':
     dataset = get_mapped_taco(config)
     logging.info("Finished loading TACO dataset")
     
-    GVRunner.run_multi(dataset[:100], config)
+    system = GVSystem(config)
+    asyncio.run(system.generate_test_cases(dataset[0]))
+    #asyncio.run(asyncio.gather(*(system.generate_test_cases(problem) for problem in dataset[:8])))

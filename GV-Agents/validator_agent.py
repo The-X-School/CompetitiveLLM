@@ -9,7 +9,7 @@ class ValidatorAgent:
         self.client = client
         if client.backend != "async_openrouter":
             raise ValueError("Validator agent requires async_openrouter backend")
-        self.messages = []
+        self.messages = {}
         self.system_prompt = \
 f"""
 You are an expert competitive programming test case validator, which means your job is to validate test cases, given both a problem and a test case. Your task is to write validators for test cases in Python that ensure that a test case inputs fully comply with the problem constraints.
@@ -39,15 +39,15 @@ Be precise and exhaustive - missing a single constraint could break the problem.
     
     async def generate_validator(self, problem: Problem) -> ValidatorResult:
         logger.info(f"Generating validator...")
-        if self.messages == []:
-            self.messages = [
+        if problem.id not in self.messages:
+            self.messages[problem.id] = [
                 {"role": "system", "content": self.system_prompt},
                 {"role": "user", "content": problem.get_description()}
             ]
         
-        output = await self.client.async_chat(self.messages, temperature=0.0)
+        output = await self.client.async_chat(self.messages[problem.id], temperature=0.0)
         #print(output)
-        self.messages.append({"role": "assistant", "content": output})
+        self.messages[problem.id].append({"role": "assistant", "content": output})
         self.code = extract_code(output)
         return ValidatorResult(output, self.code)
     

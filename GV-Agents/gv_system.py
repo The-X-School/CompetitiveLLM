@@ -16,9 +16,9 @@ logger = logging.getLogger(__name__)
 
 class GVSystem:
     """Generator-Validator System for the two agents to communicate"""
-    def __init__(self, generator: LLMClient, validator: LLMClient, config: Config):
-        self.generator_agent = GeneratorAgent(generator, config)
-        self.validator_agent = ValidatorAgent(validator)
+    def __init__(self, config: Config):
+        self.generator_agent = GeneratorAgent(LLMClient(config.generator), config)
+        self.validator_agent = ValidatorAgent(LLMClient(config.validator))
         self.max_retries = config.max_retries
         self.postive_cases_path = config.postive_cases_path
         self.negative_cases_path = config.negative_cases_path
@@ -45,20 +45,22 @@ class GVSystem:
         # p2.join()
         # validator_result = q1.get()
         # generator_result = q2.get()
-        await asyncio.gather()
-        validator_result = await self.validator_agent.generate_validator(problem)
-        generator_result = await self.generator_agent.generate_generator(problem)
-        
+        print('hi')
+        validator_result, generator_result = await asyncio.gather(
+            self.validator_agent.generate_validator(problem),
+            self.generator_agent.generate_generator(problem)
+        )
+        print('hi2')
         if not validator_result or not generator_result:
             if retries < self.max_retries:
-                return self.generate_test_cases(problem, retries + 1)
+                return await self.generate_test_cases(problem, retries + 1)
             else:
                 print(f"Skipping problem with id {problem.id} after {self.max_retries} retries.")
                 return []
 
-        #print("Validator:", validator_result.code)
-        #print("\nGenerator:", generator_result.inputs)
-        #print("\nGenerator:", generator_result.response)
+        print("Validator:", validator_result.code)
+        print("\nGenerator:", generator_result.inputs)
+        print("\nGenerator:", generator_result.response)
         
         for i in range(self.max_retries):
             test_cases = self.validator_agent.test_inputs(
@@ -73,9 +75,9 @@ class GVSystem:
                 
             #print("\nValidator:", feedback)
             if feedback == "All test cases passed!": break
-            self.generator_agent.messages.append({"role": "user", "content": feedback})
+            self.generator_agent.messages[problem.id].append({"role": "user", "content": feedback})
             
-            generator_result = self.generator_agent.generate_generator(problem)
+            generator_result = await self.generator_agent.generate_generator(problem)
             #print("\nGenerator:", generator_result.inputs)
             #print("\nGenerator:", generator_result.response)
         
@@ -122,32 +124,32 @@ class GVSystem:
 #         with multiprocess.Pool(self.config.processes) as pool:
 #             return pool.map(self.run_single, problems)
 
-class GVRunner:
-    @staticmethod
-    def _run_single(problem: Problem, config: Config):
-        """Standalone function that can be pickled for multiprocess"""
-        logging.info(f"Generating test cases for problem {problem.name} with ID {problem.id}")
+# class GVRunner:
+#     @staticmethod
+#     def _run_single(problem: Problem, config: Config):
+#         """Standalone function that can be pickled for multiprocess"""
+#         logging.info(f"Generating test cases for problem {problem.name} with ID {problem.id}")
 
-        # Create fresh instances for each process
-        generator = LLMClient(config.generator)
-        validator = LLMClient(config.validator)
-        system = GVSystem(generator, validator, config)
+#         # Create fresh instances for each process
+#         generator = LLMClient(config.generator)
+#         validator = LLMClient(config.validator)
+#         system = GVSystem(generator, validator, config)
 
-        return system.generate_test_cases(problem)
+#         return system.generate_test_cases(problem)
 
-    @staticmethod
-    def run_multi(problems: List[Problem], config: Config):
-        # Create tuples of (config, problem) for the standalone function
-        # config_problem_pairs = [(self.config, problem) for problem in problems]
-        # with multiprocess.Pool(self.config.processes) as pool:
-        #     return pool.map(_run_single_problem, config_problem_pairs)
-        with ProcessPoolExecutor(max_workers=config.processes) as executor:
-            return list(executor.map(GVRunner._run_single, problems, [config] * len(problems)))
+#     @staticmethod
+#     def run_multi(problems: List[Problem], config: Config):
+#         # Create tuples of (config, problem) for the standalone function
+#         # config_problem_pairs = [(self.config, problem) for problem in problems]
+#         # with multiprocess.Pool(self.config.processes) as pool:
+#         #     return pool.map(_run_single_problem, config_problem_pairs)
+#         with ProcessPoolExecutor(max_workers=config.processes) as executor:
+#             return list(executor.map(GVRunner._run_single, problems, [config] * len(problems)))
 
 if __name__ == '__main__':
     config = Config(
-        generator = ClientConfig("openrouter", "deepseek/deepseek-chat-v3-0324"),
-        validator = ClientConfig("openrouter", "deepseek/deepseek-chat-v3-0324"),
+        generator = ClientConfig("async_openrouter", "deepseek/deepseek-chat-v3-0324"),
+        validator = ClientConfig("async_openrouter", "deepseek/deepseek-chat-v3-0324"),
         processes = 32
     )
     generator = LLMClient(config.generator)
@@ -198,8 +200,9 @@ Since Tanya eats candy instantly, the required time is four seconds.
         id="1",
         name="Tanya and Colored Candies",
         statement=statement,
+        solutions=[],
         sample_inputs=["5 3 10\n1 2 3 4 5\nRGBRR", "2 1 15\n5 6\nRG"],
         sample_outputs=["4", "-1"]
     )
     
-    system.generate_test_cases(problem)
+    asyncio.run(system.generate_test_cases(problem))
