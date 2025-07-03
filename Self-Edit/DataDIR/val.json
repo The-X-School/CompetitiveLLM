@@ -1,0 +1,10 @@
+[
+  {
+    "id": "ex3",
+    "prompt": "def multiply(x, y):\n    \"\"\"Return product of x and y.\"\"\"",
+    "candidates": [
+      {"text": "def multiply(x, y):\n    return x * y", "score": 1},
+      {"text": "def multiply(x, y):\n    return x + y", "score": 0}
+    ]
+  }
+]

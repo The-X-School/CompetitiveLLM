@@ -1,0 +1,18 @@
+[
+  {
+    "id": "ex1",
+    "prompt": "def add(a, b):\n    \"\"\"Return sum of a and b.\"\"\"",
+    "candidates": [
+      {"text": "def add(a, b):\n    return a + b", "score": 1},
+      {"text": "def add(a, b):\n    return a - b", "score": 0}
+    ]
+  },
+  {
+    "id": "ex2",
+    "prompt": "def greet(name):\n    \"\"\"Return greeting string.\"\"\"",
+    "candidates": [
+      {"text": "def greet(name):\n    return f'Hello {name}'", "score": 1},
+      {"text": "def greet(name):\n    return 'Hi!'", "score": 0}
+    ]
+  }
+]
