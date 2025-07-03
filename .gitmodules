@@ -1,3 +1,6 @@
 [submodule "LiveCodeBench"]
 	path = LiveCodeBench
 	url = https://github.com/LiveCodeBench/LiveCodeBench.git
+[submodule "Self-Edit/CodeRanker"]
+	path = Self-Edit/CodeRanker
+	url = https://github.com/microsoft/CodeRanker
