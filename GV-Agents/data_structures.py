@@ -74,7 +74,7 @@ class GeneratorResult:
     """Result from the Generator Agent."""
     response: str
     code: str
-    commands: List[Command]
+    commands: List[str]
     inputs: Optional[List[str]] = None
 
 @dataclass
