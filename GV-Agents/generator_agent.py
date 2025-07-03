@@ -3,6 +3,7 @@ from llm_client import LLMClient
 from utils import extract_code, extract_configuration, test_code_multi_cases, queue_result
 from typing import Optional
 import logging
+import asyncio
 
 logger = logging.getLogger(__name__)
 
@@ -66,14 +67,23 @@ Be precise, deterministic, and thorough.
         code = extract_code(output)
         commands = extract_configuration(output)
         logger.info("Running generator with commands")
-        tests = test_code_multi_cases(code, commands)
-        logger.info("Finished running generator with commands")
-        return GeneratorResult(
-            response = output,
-            code = code,
-            commands = commands,
-            inputs = [test.output for test in tests]
-        )
+        if code:
+            tests = test_code_multi_cases(code, commands)
+            logger.info("Finished running generator with commands")
+            return GeneratorResult(
+                response = output,
+                code = code,
+                commands = commands,
+                inputs = [test.output for test in tests]
+            )
+        else:
+            logger.info("Code could not be extracted")
+            return GeneratorResult(
+                response = output,
+                code = code,
+                commands = commands,
+                inputs = []
+            )
         
 if __name__ == '__main__':
     config = Config(
@@ -125,11 +135,12 @@ Since Tanya eats candy instantly, the required time is four seconds.
         id="1",
         name="Tanya and Colored Candies",
         statement=statement,
+        solutions = [],
         sample_inputs=["5 3 10\n1 2 3 4 5\nRGBRR", "2 1 15\n5 6\nRG"],
         sample_outputs=["4", "-1"]
     )
     
-    response = agent.generate_generator(problem)
+    response = asyncio.run(agent.generate_generator(problem))
     print(response.response)
     print(response.code)
     print(response.commands)

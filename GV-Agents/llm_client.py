@@ -14,7 +14,8 @@ class LLMClient:
         self.model = client_config.model
 
         if self.backend == "hf":
-            from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
+            from transformers import AutoModelForCausalLM, AutoTokenizer
+            from transformers.pipelines import pipeline
             self.tokenizer = AutoTokenizer.from_pretrained(self.model)
             self.model = AutoModelForCausalLM.from_pretrained(self.model)
             self.generator = pipeline("text-generation", model=self.model, tokenizer=self.tokenizer)

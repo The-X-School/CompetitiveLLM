@@ -2,7 +2,7 @@ import logging
 import json
 import tqdm
 import dataclasses
-import multiprocess
+import multiprocessing
 import asyncio
 from concurrent.futures import ProcessPoolExecutor
 from utils import load_json, save_json, queue_result
@@ -11,7 +11,7 @@ from llm_client import LLMClient
 from generator_agent import GeneratorAgent
 from validator_agent import ValidatorAgent
 
-multiprocess.set_start_method('fork')
+multiprocessing.set_start_method('fork')
 logger = logging.getLogger(__name__)
 
 class GVSystem:
@@ -27,14 +27,14 @@ class GVSystem:
         """Parallelized of generation  test cases for a given problem"""
         test_cases = []
     
-        # q1 = multiprocess.Queue()
-        # q2 = multiprocess.Queue()
-        # p1 = multiprocess.Process(
+        # q1 = multiprocessing.Queue()
+        # q2 = multiprocessing.Queue()
+        # p1 = multiprocessing.Process(
         #     target=self.validator_agent.generate_validator,
         #     args=(problem,),
         #     kwargs={"queue": q1}
         # )
-        # p2 = multiprocess.Process(
+        # p2 = multiprocessing.Process(
         #     target=self.generator_agent.generate_generator,
         #     args=(problem,),
         #     kwargs={"queue": q2}
@@ -58,6 +58,14 @@ class GVSystem:
                 print(f"Skipping problem with id {problem.id} after {self.max_retries} retries.")
                 return []
 
+        if not validator_result.code:
+            logging.info("Could not extract validator. Skipping validating steps.")
+            generator_result = await self.generator_agent.generate_generator(problem)
+            inputs = []
+            for input in generator_result.inputs:
+                if input is not None: inputs.append(input)
+            return inputs
+
         print("Validator:", validator_result.code)
         print("\nGenerator:", generator_result.inputs)
         print("\nGenerator:", generator_result.response)
@@ -65,17 +73,16 @@ class GVSystem:
         for i in range(self.max_retries):
             test_cases = self.validator_agent.test_inputs(
                 validator_result.code,
-                generator_result.inputs
+                generator_result.inputs # type: ignore
             )
-            
             if (i < self.max_retries - 1):
                 feedback = self.validator_agent.give_feedback(
                     generator_result.commands, test_cases
                 )
+                if feedback == "All test cases passed!": break
+                self.generator_agent.messages[problem.id].append({"role": "user", "content": feedback})
                 
             #print("\nValidator:", feedback)
-            if feedback == "All test cases passed!": break
-            self.generator_agent.messages[problem.id].append({"role": "user", "content": feedback})
             
             generator_result = await self.generator_agent.generate_generator(problem)
             #print("\nGenerator:", generator_result.inputs)
@@ -121,13 +128,13 @@ class GVSystem:
 #         return self.system.generate_test_cases(problem)
         
 #     def run_multi(self, problems: List[Problem]):
-#         with multiprocess.Pool(self.config.processes) as pool:
+#         with multiprocessing.Pool(self.config.processes) as pool:
 #             return pool.map(self.run_single, problems)
 
 # class GVRunner:
 #     @staticmethod
 #     def _run_single(problem: Problem, config: Config):
-#         """Standalone function that can be pickled for multiprocess"""
+#         """Standalone function that can be pickled for multiprocessing"""
 #         logging.info(f"Generating test cases for problem {problem.name} with ID {problem.id}")
 
 #         # Create fresh instances for each process
@@ -141,7 +148,7 @@ class GVSystem:
 #     def run_multi(problems: List[Problem], config: Config):
 #         # Create tuples of (config, problem) for the standalone function
 #         # config_problem_pairs = [(self.config, problem) for problem in problems]
-#         # with multiprocess.Pool(self.config.processes) as pool:
+#         # with multiprocessing.Pool(self.config.processes) as pool:
 #         #     return pool.map(_run_single_problem, config_problem_pairs)
 #         with ProcessPoolExecutor(max_workers=config.processes) as executor:
 #             return list(executor.map(GVRunner._run_single, problems, [config] * len(problems)))
@@ -154,7 +161,7 @@ if __name__ == '__main__':
     )
     generator = LLMClient(config.generator)
     validator = LLMClient(config.validator)
-    system = GVSystem(generator, validator, config)
+    system = GVSystem(config)
     
     # statement pulled from codeforces "Tanya and Colored Candies" (https://codeforces.com/problemset/problem/1057/C)
     statement = \

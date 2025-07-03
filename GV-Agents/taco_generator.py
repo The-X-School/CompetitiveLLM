@@ -37,8 +37,8 @@ def get_mapped_taco(config: Config, split="train") -> List[Problem]:
     def map_full():
         dataset_mapped = []
         dataset = load_dataset("BAAI/TACO", split=split)
-        for i in trange(len(dataset), desc="Mapping TACO dataset"):
-            dataset_mapped.append(map_taco_problem(dataset[i], i))
+        for i in trange(len(dataset), desc="Mapping TACO dataset"): # type: ignore
+            dataset_mapped.append(map_taco_problem(dataset[i], i)) # type: ignore
         with open(config.mapped_taco_path, "wb") as f:
             pickle.dump(dataset_mapped, f)
         return dataset_mapped

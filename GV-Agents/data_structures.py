@@ -9,8 +9,8 @@ class ClientConfig:
 
 @dataclass
 class Config:
-    generator: ClientConfig
-    validator: ClientConfig
+    generator: ClientConfig = ClientConfig("async_openrouter", "deepseek/deepseek-chat-v3-0324")
+    validator: ClientConfig = ClientConfig("async_openrouter", "deepseek/deepseek-chat-v3-0324")
     
     postive_cases_path: str = 'data/postive_cases.json'
     negative_cases_path: str = 'data/negative_cases.json'
@@ -73,12 +73,12 @@ class Command:
 class GeneratorResult:
     """Result from the Generator Agent."""
     response: str
-    code: str
+    code: Optional[str]
     commands: List[str]
-    inputs: Optional[List[str]] = None
+    inputs: List[Optional[str]]
 
 @dataclass
 class ValidatorResult:
     """Result from the Validator Agent."""
     response: str
-    code: str
+    code: Optional[str]

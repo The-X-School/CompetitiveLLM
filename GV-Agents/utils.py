@@ -4,12 +4,12 @@ import builtins
 import json
 import io
 import sys
-import multiprocess
+import multiprocessing
 import resource
 import ast
 from functools import wraps
 from pathlib import Path
-from typing import List, Tuple
+from typing import List, Tuple, Optional
 from concurrent.futures import ProcessPoolExecutor, TimeoutError as FuturesTimeoutError
 from data_structures import CodeResult
 
@@ -42,7 +42,7 @@ def clean_if_main(code: str) -> str:
 
     return code
 
-def extract_code(text: str, language: str = "python") -> str:
+def extract_code(text: str, language: str = "python") -> Optional[str]:
     """Extracts markdown code from a text given a language"""
     compiled = re.findall(f"```{language}(.*?)```", text, re.DOTALL)
     if len(compiled) > 0:
@@ -56,7 +56,7 @@ def extract_configuration(text: str) -> List[str]:
 # TODO: Fix ts
 def reliability_guard(memory_limit: float = 256):
     hard = resource.getrlimit(resource.RLIMIT_AS)[1]
-    memory_limit_bytes = memory_limit * 1024 * 1024  # in bytes
+    memory_limit_bytes = int(memory_limit * 1024 * 1024)  # in bytes
 
     if memory_limit_bytes > hard:
         memory_limit_bytes = hard  # Cap to avoid ValueError
@@ -71,9 +71,9 @@ def reliability_guard(memory_limit: float = 256):
 def run_code(
     code: str,
     case_input: str,
-    output_queue: multiprocess.Queue,
+    output_queue: multiprocessing.Queue,
     memory_limit: float = 256
-) -> CodeResult:
+):
     """Runs a piece of code with given inputs and captures the outputs"""
     
     #reliability_guard(memory_limit)
@@ -105,7 +105,7 @@ def run_code(
                 memory=get_peak_memory_mb(),
                 verdict="Memory Limit Error",
                 error=str(e)
-            ), 0)
+            ), False)
             return
         
         output_queue.put(CodeResult(
@@ -113,7 +113,7 @@ def run_code(
             memory=get_peak_memory_mb(),
             verdict="Runtime Error",
             error=str(e)
-        ), 0)
+        ), False)
         return
     finally:
         sys.stdout = sys.__stdout__
@@ -124,7 +124,7 @@ def run_code(
         memory=get_peak_memory_mb(),
         verdict="OK"
     )
-    output_queue.put(result, 0)
+    output_queue.put(result, False)
     return
 
 def _run_code_wrapper(args: Tuple[str, str, float]) -> CodeResult:
@@ -132,11 +132,11 @@ def _run_code_wrapper(args: Tuple[str, str, float]) -> CodeResult:
     code, case, time_limit = args
 
     # Create a manager and queue for this specific execution
-    manager = multiprocess.Manager()
+    manager = multiprocessing.Manager()
     output_queue = manager.Queue()
 
     # Run the code in a separate process
-    p = multiprocess.Process(target=run_code, args=(code, case, output_queue))
+    p = multiprocessing.Process(target=run_code, args=(code, case, output_queue))
     p.start()
     p.join(timeout=time_limit)
 
@@ -167,7 +167,7 @@ def test_code_multi_cases(
     cases: List[str],
     time_limit: float = 2,
     processes = 8,
-    max_workers: int = None
+    max_workers: Optional[int] = None
 ) -> List[CodeResult]:
     """Execute multiple test cases using a process pool for better efficiency"""
     if not cases:
@@ -189,7 +189,7 @@ def test_multi_code(
     codes: List[str],
     cases: List[str],
     time_limit: float = 2,
-    max_workers: int = None
+    max_workers: Optional[int] = None
 ) -> List[List[CodeResult]]:
     """Execute multiple codes against multiple test cases using process pool"""
     if not codes or not cases:
@@ -206,7 +206,7 @@ def test_multi_code(
 
     # Use ProcessPoolExecutor for parallel execution
     if max_workers is None:
-        max_workers = min(len(all_args), multiprocess.cpu_count())
+        max_workers = min(len(all_args), multiprocessing.cpu_count())
 
     with ProcessPoolExecutor(max_workers=max_workers) as executor:
         all_results = list(executor.map(_run_code_wrapper, all_args))

@@ -2,6 +2,7 @@ from data_structures import *
 from llm_client import LLMClient
 from utils import extract_code, test_code_multi_cases, queue_result
 import logging
+import asyncio
 
 logger = logging.getLogger(__name__)
 class ValidatorAgent:
@@ -123,10 +124,12 @@ Since Tanya eats candy instantly, the required time is four seconds.
         id="1",
         name="Tanya and Colored Candies",
         statement=statement,
+        solutions=[],
         sample_inputs=["5 3 10\n1 2 3 4 5\nRGBRR", "2 1 15\n5 6\nRG"],
         sample_outputs=["4", "-1"]
     )
     
-    result = agent.generate_validator(problem)
+    result = asyncio.run(agent.generate_validator(problem))
     print("Validator Code:", result.code)
-    print(agent.test_inputs(result.code, problem.sample_inputs))
+    if result.code:
+        print(agent.test_inputs(result.code, problem.sample_inputs))
