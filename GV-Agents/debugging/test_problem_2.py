@@ -13,12 +13,19 @@ if __name__ == '__main__':
     problem_2 = ds[1]
     print(problem_2.statement)
 
-    true_cases, false_cases = evaluate_truths(["1 1 1\n1\nR\n", "2 1 15\n5 6\nRG"], problem_2.solutions, 5)
+    true_cases, false_cases = evaluate_truths(["1 1 1\n1\nR\n", "2 1 15\n5 6\nRG"], problem_2.solutions, pass_threshold=0.8)
 
     # print(f"\n{problem_2.solutions[-2]}\n")
 
     print(f"In true: {len(true_cases)}")
+    print(f"True cases:")
+    for i in range(len(true_cases)):
+        print(f"{true_cases[i]}")
+
     print(f"In false: {len(false_cases)}")
+    print(f"False cases:")
+    for i in range(len(false_cases)):
+        print(f"{false_cases[i]}")
 
     # NOTE: input format:
     # the first line contains three integers n, s, and k

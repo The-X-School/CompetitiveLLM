@@ -19,30 +19,44 @@ logging.basicConfig(
 )
 
 # returns two lists: true cases and false cases
-def evaluate_truths(inputs: List[str], solutions: List[str], solution_limit: Optional[int] = None) -> Tuple[List[str], List[str]]:
+def evaluate_truths(inputs: List[str], solutions: List[str], solution_limit: Optional[int] = None, pass_threshold: float = 0.8) -> Tuple[List[str], List[str]]:
     """Evaluates if certain inputs for a problem are valid or not based on solution verdict"""
     if solution_limit: sliced_sols = solutions[:solution_limit]
     else: sliced_sols = solutions
 
     outs = test_multi_code(sliced_sols, inputs, 2)
-    # for out in outs: print(out)
+    for out in outs: print(out)
     true_cases = []
     false_cases = []
+    counters = {}
+    total = 0
     for i in range(len(inputs)):
-        passed = True
-        for j in range(len(sliced_sols)):            # if outs[j][i].verdict != 'OK' or (j > 0 and outs[j][i].output != outs[j-1][i].output):
-            if outs[j][i].verdict != 'OK':
-                false_cases.append(inputs[i])
-                passed = False
-                break
+        for j in range(len(sliced_sols)): 
+            if outs[j][i].verdict == 'OK':
+                key = outs[j][i].output
+                if key not in counters:
+                    counters[key] = 1
+                else:
+                    counters[key] += 1
+
+        max_val = max(counters.values())
+        passed = max_val >= pass_threshold * len(sliced_sols)
+            # if outs[j][i].verdict != 'OK' or (j > 0 and outs[j][i].output != outs[j-1][i].output):
+            # if outs[j][i].verdict != 'OK':
+            #     false_cases.append(inputs[i])
+            #     passed = False
+            #     incorrect += 1
             
-            if j > 0 and outs[j][i].output != outs[j-1][i].output:
-                false_cases.append(inputs[i])
-                passed = False
-                break
+            # if j > 0 and outs[j][i].output != outs[j-1][i].output:
+            #     false_cases.append(inputs[i])
+            #     passed = False
+            #     incorrect += 1
         
+    
         if passed:
             true_cases.append(inputs[i])
+        else:
+            false_cases.append(inputs[i])
     
     return true_cases, false_cases
 

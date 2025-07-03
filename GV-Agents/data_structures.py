@@ -1,8 +1,8 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import List, Optional
 from enum import Enum
 
-@dataclass
+@dataclass(frozen=True)
 class ClientConfig:
     backend: str
     model: str
